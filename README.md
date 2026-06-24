@@ -104,6 +104,32 @@ $env:TAVILY_API_KEY="your-key"
 python -m uvicorn research_agent.api:app --host 127.0.0.1 --port 8000
 ```
 
+## Deploy On Vercel
+
+This project is configured for Vercel's Python runtime through `tool.vercel.entrypoint` in `pyproject.toml`.
+
+Required production environment variables:
+
+```text
+GEOAPIFY_API_KEY
+GEOAPIFY_FALLBACK_API_KEY
+SERPER_API_KEY
+TAVILY_API_KEY
+RESEARCH_ENRICHMENT_TIMEOUT_SECONDS=8
+RESEARCH_SEARCH_TIMEOUT_SECONDS=12
+RESEARCH_CONCURRENCY=8
+```
+
+Optional:
+
+```text
+MONGO_URI
+MONGO_DATABASE
+GOOGLE_MAPS_API_KEY
+```
+
+On Vercel, the SQLite HTTP/search cache automatically uses `/tmp/research_agent.sqlite3`, because serverless deployments should not write to the read-only project bundle. For persistent storage, set `MONGO_URI`.
+
 ## Notes On Public Data
 
 This code is designed for publicly available information. Some targets rate-limit, block automated traffic, or disallow scraping in their terms or robots rules. The default client has robots.txt checks enabled, conservative request headers, timeouts, caching, and concurrency controls. For production use, review each source's terms and configure allow/deny policies for your jurisdiction and use case.

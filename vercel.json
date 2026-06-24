@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "research_agent/api.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{tests/**,.cache/**,.pytest_cache/**,**/__pycache__/**,*.sqlite3,*.db}"
+    }
+  }
+}

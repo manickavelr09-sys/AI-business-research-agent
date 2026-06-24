@@ -5,6 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def _default_cache_path() -> str:
+    if os.getenv("VERCEL"):
+        return "/tmp/research_agent.sqlite3"
+    return ".cache/research_agent.sqlite3"
+
+
 def _bool_env(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
@@ -16,7 +22,7 @@ def _bool_env(name: str, default: bool) -> bool:
 class Settings:
     host: str = os.getenv("APP_HOST", "127.0.0.1")
     port: int = int(os.getenv("APP_PORT", "8000"))
-    cache_path: Path = Path(os.getenv("RESEARCH_CACHE_PATH", ".cache/research_agent.sqlite3"))
+    cache_path: Path = Path(os.getenv("RESEARCH_CACHE_PATH", _default_cache_path()))
     concurrency: int = int(os.getenv("RESEARCH_CONCURRENCY", "12"))
     request_timeout_seconds: float = float(os.getenv("RESEARCH_REQUEST_TIMEOUT_SECONDS", "15"))
     search_timeout_seconds: float = float(os.getenv("RESEARCH_SEARCH_TIMEOUT_SECONDS", "12"))
