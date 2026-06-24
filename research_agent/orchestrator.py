@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+import asyncio
+import time
+from datetime import datetime, timezone
+from typing import AsyncIterator
+
+from research_agent.config import Settings, settings as default_settings
+from research_agent.business_enrichment import BusinessEnricher
+from research_agent.dedupe import dedupe_records
+from research_agent.discovery import build_discovery_queries, filter_result, result_relevance_score
+from research_agent.extraction import extract_business_from_html, record_from_search_result
+from research_agent.geoapify_provider import GeoapifyProvider
+from research_agent.http_client import HttpClient
+from research_agent.models import BusinessRecord, ResearchReport
+from research_agent.mongo_store import MongoResearchStore
+from research_agent.places_provider import GooglePlacesProvider
+from research_agent.query_parser import parse_user_query
+from research_agent.record_quality import should_stream_record
+from research_agent.report import data_quality_summary, verified_count
+from research_agent.search_providers import BingHtmlProvider, DuckDuckGoHtmlProvider, SearchProvider, SerperSearchProvider, TavilySearchProvider
+from research_agent.serper_provider import SerperPlacesProvider
+from research_agent.storage import ResearchCache
+from research_agent.verification import verify_record
+
+
+class ResearchAgent:
+    def __init__(self, settings: Settings = default_settings) -> None:
+        self.settings = settings
+        self.cache = ResearchCache(settings.cache_path)
+        self.http = HttpClient(settings, self.cache)
+        self.mongo = MongoResearchStore(settings)
+        self.places = GooglePlacesProvider(settings, self.http)
+        self.geoapify = GeoapifyProvider(settings, self.http)
+        self.serper_places = SerperPlacesProvider(settings, self.http)
+        self.providers: list[SearchProvider] = [
+            SerperSearchProvider(self.http, self.cache),
+            TavilySearchProvider(self.http, self.cache),
+            DuckDuckGoHtmlProvider(self.http, self.cache),
+            BingHtmlProvider(self.http, self.cache),
+        ]
+        self.enricher = BusinessEnricher(self.providers, self.http, self.settings.concurrency)
+
+    async def close(self) -> None:
+        await self.http.close()
+        await self.mongo.close()
+
+    async def research_stream(self, raw_query: str, limit: int | None = None) -> AsyncIterator[dict]:
+        parsed = parse_user_query(raw_query)
+        started = time.perf_counter()
+        started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        yield {"event": "started", "query": parsed.display(), "started_at": started_at}
+
+        search_queries = build_discovery_queries(parsed)
+        result_urls: dict[str, object] = {}
+        searched_sources = set()
+        semaphore = asyncio.Semaphore(self.settings.concurrency)
+        records: list[BusinessRecord] = []
+        geoapify_records = await self.geoapify.search(parsed, limit=min(limit or 50, 80))
+        if geoapify_records:
+            searched_sources.add("geoapify")
+            yield {"event": "geoapify_complete", "candidate_records": len(geoapify_records)}
+
+        place_records = await self.places.search(parsed, limit=min(limit or 20, 40))
+        if place_records:
+            searched_sources.add("google_places")
+            yield {"event": "places_complete", "candidate_records": len(place_records)}
+
+        serper_place_records = await self.serper_places.search(parsed, limit=min(limit or 40, 80))
+        if serper_place_records:
+            searched_sources.add("serper_places")
+            yield {"event": "serper_places_complete", "candidate_records": len(serper_place_records)}
+
+        for map_record in [*geoapify_records, *place_records, *serper_place_records]:
+            verified_map_record = verify_record(map_record)
+            if should_stream_record(verified_map_record, parsed, "serper_places"):
+                records.append(verified_map_record)
+                yield {"event": "business_discovered", "business": verified_map_record.to_dict()}
+
+        if records:
+            yield {"event": "business_enrichment_started", "records": len(records)}
+            enriched_map_records = await self.enricher.enrich_many(
+                records[: min(len(records), limit or 20)],
+                parsed,
+                per_business_limit=2,
+                timeout_seconds=self.settings.enrichment_timeout_seconds,
+            )
+            records = []
+            for enriched in enriched_map_records:
+                if should_stream_record(enriched, parsed, "geoapify"):
+                    records.append(enriched)
+                    yield {"event": "business_enriched", "business": enriched.to_dict()}
+
+        async def run_search(provider: SearchProvider, search_query: str, page: int) -> None:
+            async with semaphore:
+                results = await provider.search(search_query, page)
+            searched_sources.add(provider.name)
+            for result in results:
+                if filter_result(result, parsed):
+                    result_urls.setdefault(result.url, result)
+
+        active_search_queries = search_queries[:8] if records else search_queries
+        active_search_pages = 1 if records else self.settings.max_search_pages
+        search_tasks = [
+            run_search(provider, search_query, page)
+            for search_query in active_search_queries
+            for page in range(1, active_search_pages + 1)
+            for provider in self.providers
+        ]
+        if search_tasks:
+            done, pending = await asyncio.wait(
+                [asyncio.create_task(task) for task in search_tasks],
+                timeout=self.settings.search_timeout_seconds if records else self.settings.search_timeout_seconds * 2,
+            )
+            for task in pending:
+                task.cancel()
+            if pending:
+                yield {"event": "search_timeout", "cancelled_tasks": len(pending)}
+            for task in done:
+                task.result()
+        search_results = sorted(
+            result_urls.values(),
+            key=lambda item: result_relevance_score(item, parsed),
+            reverse=True,
+        )[: self.settings.max_result_urls]
+        if limit:
+            search_results = search_results[:limit]
+        yield {
+            "event": "discovery_complete",
+            "candidate_urls": len(search_results),
+            "search_queries": len(search_queries),
+        }
+
+        async def fetch_and_extract(result) -> BusinessRecord:
+            seed = record_from_search_result(result)
+            fetched = await self.http.fetch(result.url)
+            if fetched and fetched.status_code < 400 and fetched.body:
+                return extract_business_from_html(fetched.url, fetched.body, seed)
+            return seed
+
+        async def worker(result) -> BusinessRecord:
+            async with semaphore:
+                return await fetch_and_extract(result)
+
+        for future in asyncio.as_completed([worker(result) for result in search_results]):
+            record = verify_record(await future)
+            if should_stream_record(record, parsed, "web"):
+                records.append(record)
+                yield {"event": "business_discovered", "business": record.to_dict()}
+
+        deduped, removed = dedupe_records(records)
+        verified = [verify_record(record) for record in deduped]
+        verified.sort(key=lambda record: record.reliability_score, reverse=True)
+        completed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        report = ResearchReport(
+            query=parsed.display(),
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_seconds=time.perf_counter() - started,
+            businesses_found=len(verified),
+            businesses_verified=verified_count(verified),
+            duplicate_records_removed=removed,
+            sources_searched=len(searched_sources) + len(search_queries),
+            data_quality=data_quality_summary(verified),
+            results=verified,
+        )
+        report_payload = report.to_dict()
+        mongo_result = await self.mongo.save_report(report_payload)
+        completed_event = {"event": "completed", "report": report_payload}
+        if mongo_result:
+            completed_event["mongo"] = mongo_result
+        yield completed_event
+
+    async def research(self, raw_query: str, limit: int | None = None) -> ResearchReport:
+        report_data = None
+        async for event in self.research_stream(raw_query, limit=limit):
+            if event["event"] == "completed":
+                report_data = event["report"]
+        if report_data is None:
+            raise RuntimeError("Research did not complete")
+        summary = report_data["search_summary"]
+        return ResearchReport(
+            query=summary["query"],
+            started_at=summary["started_at"],
+            completed_at=summary["completed_at"],
+            duration_seconds=float(summary["research_duration"].split()[0]),
+            businesses_found=summary["businesses_found"],
+            businesses_verified=summary["businesses_verified"],
+            duplicate_records_removed=summary["duplicate_records_removed"],
+            sources_searched=summary["sources_searched"],
+            data_quality=report_data["data_quality_summary"],
+            results=[],
+        )
