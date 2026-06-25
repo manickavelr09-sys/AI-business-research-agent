@@ -54,7 +54,8 @@ class ResearchAgent:
         yield {"event": "started", "query": parsed.display(), "started_at": started_at}
 
         search_queries = build_discovery_queries(parsed)
-        target_limit = min(max(limit or 100, 1), 5000)
+        target_limit = min(max(limit or 200, 1), 5000)
+        candidate_goal = _candidate_collection_goal(target_limit)
         source_plan = build_source_plan(parsed, budget=max(12, self.settings.search_query_budget))
         result_urls: dict[str, object] = {}
         searched_sources = set()
@@ -70,7 +71,7 @@ class ResearchAgent:
                 source_errors.append(f"{source_name}:disabled")
                 yield {"event": "source_skipped", "source": source_name, "reason": "missing_api_key"}
         try:
-            geoapify_records = await self.geoapify.search(parsed, limit=min(target_limit, 120))
+            geoapify_records = await self.geoapify.search(parsed, limit=min(candidate_goal, 1200))
         except Exception as exc:
             geoapify_records = []
             source_errors.append(f"geoapify:{type(exc).__name__}")
@@ -80,7 +81,7 @@ class ResearchAgent:
             yield {"event": "geoapify_complete", "candidate_records": len(geoapify_records)}
 
         try:
-            place_records = await self.places.search(parsed, limit=min(target_limit, 80))
+            place_records = await self.places.search(parsed, limit=min(candidate_goal, 500))
         except Exception as exc:
             place_records = []
             source_errors.append(f"google_places:{type(exc).__name__}")
@@ -90,7 +91,7 @@ class ResearchAgent:
             yield {"event": "places_complete", "candidate_records": len(place_records)}
 
         try:
-            serper_place_records = await self.serper_places.search(parsed, limit=min(target_limit, 140))
+            serper_place_records = await self.serper_places.search(parsed, limit=min(candidate_goal, 500))
         except Exception as exc:
             serper_place_records = []
             source_errors.append(f"serper_places:{type(exc).__name__}")
@@ -99,6 +100,7 @@ class ResearchAgent:
             searched_sources.add("serper_places")
             yield {"event": "serper_places_complete", "candidate_records": len(serper_place_records)}
 
+        streamed_businesses = 0
         for map_record, source_kind in [
             *((record, "geoapify") for record in geoapify_records),
             *((record, "google_places") for record in place_records),
@@ -107,23 +109,27 @@ class ResearchAgent:
             verified_map_record = verify_record(map_record)
             if should_stream_record(verified_map_record, parsed, source_kind):
                 records.append(verified_map_record)
-                yield {"event": "business_discovered", "business": verified_map_record.to_dict()}
-                if len(records) >= target_limit:
+                if streamed_businesses < target_limit:
+                    streamed_businesses += 1
+                    yield {"event": "business_discovered", "business": verified_map_record.to_dict()}
+                if len(records) >= candidate_goal:
                     break
 
         if records:
             yield {"event": "business_enrichment_started", "records": len(records)}
+            enrichment_goal = min(len(records), _enrichment_collection_goal(target_limit))
             enriched_map_records = await self.enricher.enrich_many(
-                records[: min(len(records), target_limit)],
+                records[:enrichment_goal],
                 parsed,
                 per_business_limit=2,
                 timeout_seconds=self.settings.enrichment_timeout_seconds,
             )
-            records = []
             for enriched in enriched_map_records:
                 if should_stream_record(enriched, parsed, "geoapify"):
                     records.append(enriched)
-                    yield {"event": "business_enriched", "business": enriched.to_dict()}
+                    if streamed_businesses < target_limit:
+                        streamed_businesses += 1
+                        yield {"event": "business_enriched", "business": enriched.to_dict()}
 
         async def run_search(provider: SearchProvider, search_query: str, page: int) -> None:
             try:
@@ -137,10 +143,10 @@ class ResearchAgent:
                 if filter_result(result, parsed):
                     result_urls.setdefault(result.url, result)
 
-        active_query_limit = min(12 if records else self.settings.search_query_budget, len(source_plan))
+        active_query_limit = min(max(18, target_limit * 2) if records else self.settings.search_query_budget, len(source_plan))
         active_source_plan = source_plan[:active_query_limit]
         active_search_queries = [item.query for item in active_source_plan]
-        active_search_pages = 1 if records else min(self.settings.max_search_pages, 2)
+        active_search_pages = min(self.settings.max_search_pages, 2)
         search_tasks = [
             run_search(provider, search_query, page)
             for search_query in active_search_queries
@@ -174,7 +180,7 @@ class ResearchAgent:
             reverse=True,
         )[: self.settings.max_result_urls]
         if limit:
-            search_results = search_results[:target_limit]
+            search_results = search_results[:candidate_goal]
         yield {
             "event": "discovery_complete",
             "candidate_urls": len(search_results),
@@ -226,14 +232,16 @@ class ResearchAgent:
                     continue
                 if should_stream_record(record, parsed, "web"):
                     records.append(record)
-                    yield {"event": "business_discovered", "business": record.to_dict()}
+                    if streamed_businesses < target_limit:
+                        streamed_businesses += 1
+                        yield {"event": "business_discovered", "business": record.to_dict()}
 
         if article_leads:
             yield {"event": "lead_mining_complete", "candidate_leads": len(article_leads)}
             lead_deduped, _ = dedupe_records(article_leads)
             yield {"event": "lead_places_enrichment_started", "candidate_leads": len(lead_deduped)}
             place_enriched_leads = await self._enrich_leads_with_places(
-                lead_deduped[: min(len(lead_deduped), self.settings.lead_enrichment_limit, target_limit)],
+                lead_deduped[: min(len(lead_deduped), self.settings.lead_enrichment_limit, candidate_goal)],
                 parsed,
                 source_errors,
             )
@@ -243,14 +251,16 @@ class ResearchAgent:
                 if should_stream_record(verified_lead, parsed, "serper_places"):
                     records.append(verified_lead)
                     yielded_place_enriched += 1
-                    yield {"event": "business_enriched", "business": verified_lead.to_dict()}
+                    if streamed_businesses < target_limit:
+                        streamed_businesses += 1
+                        yield {"event": "business_enriched", "business": verified_lead.to_dict()}
             yield {
                 "event": "lead_places_enrichment_complete",
                 "candidate_leads": len(lead_deduped),
                 "businesses_enriched": yielded_place_enriched,
             }
             enriched_leads = await self.enricher.enrich_many(
-                lead_deduped[: min(len(lead_deduped), self.settings.lead_enrichment_limit, target_limit)],
+                lead_deduped[: min(len(lead_deduped), self.settings.lead_enrichment_limit, candidate_goal)],
                 parsed,
                 per_business_limit=3,
                 timeout_seconds=max(self.settings.enrichment_timeout_seconds, 15),
@@ -259,7 +269,9 @@ class ResearchAgent:
                 verified_lead = verify_record(lead)
                 if should_stream_record(verified_lead, parsed, "web"):
                     records.append(verified_lead)
-                    yield {"event": "business_enriched", "business": verified_lead.to_dict()}
+                    if streamed_businesses < target_limit:
+                        streamed_businesses += 1
+                        yield {"event": "business_enriched", "business": verified_lead.to_dict()}
 
         deduped, removed = dedupe_records(records)
         verified = [
@@ -268,11 +280,12 @@ class ResearchAgent:
             if should_stream_record(record, parsed, "web")
         ]
         verified.sort(key=lambda record: record.reliability_score, reverse=True)
+        final_results = verified[:target_limit]
         completed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        quality = data_quality_summary(verified)
+        quality = data_quality_summary(final_results)
         research_summary = await build_research_summary(
             parsed.display(),
-            verified,
+            final_results,
             quality,
             self.settings,
             source_errors,
@@ -282,12 +295,12 @@ class ResearchAgent:
             started_at=started_at,
             completed_at=completed_at,
             duration_seconds=time.perf_counter() - started,
-            businesses_found=len(verified),
-            businesses_verified=verified_count(verified),
+            businesses_found=len(final_results),
+            businesses_verified=verified_count(final_results),
             duplicate_records_removed=removed,
             sources_searched=len(searched_sources) + len(search_queries),
             data_quality=quality,
-            results=verified,
+            results=final_results,
             research_summary=research_summary,
         )
         report_payload = report.to_dict()
@@ -396,6 +409,24 @@ def _place_candidate_score(lead: BusinessRecord, candidate: BusinessRecord) -> f
     elif normalize_text(lead.business_name) in normalize_text(candidate.business_name):
         score = max(score, 0.82)
     return score
+
+
+def _candidate_collection_goal(target_limit: int) -> int:
+    if target_limit <= 10:
+        return max(60, target_limit * 12)
+    if target_limit <= 100:
+        return max(300, target_limit * 6)
+    if target_limit <= 500:
+        return max(1000, target_limit * 5)
+    return min(5000, max(target_limit * 3, target_limit + 500))
+
+
+def _enrichment_collection_goal(target_limit: int) -> int:
+    if target_limit <= 10:
+        return target_limit
+    if target_limit <= 100:
+        return min(40, target_limit)
+    return min(80, target_limit)
 
 
 def _important_name_tokens(value: str) -> set[str]:

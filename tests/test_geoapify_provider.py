@@ -1,4 +1,4 @@
-from research_agent.geoapify_provider import GeoapifyProvider, _geocode_aliases
+from research_agent.geoapify_provider import GeoapifyProvider, _detail_enrichment_limit, _geocode_aliases
 from research_agent.verification import verify_record
 
 
@@ -51,3 +51,9 @@ def test_geoapify_does_not_turn_address_line_into_business_name() -> None:
 
     assert verified.business_name == ""
     assert verified.address == "Vypin - Pallippuram Road, Fort Kochi, Kerala, India"
+
+
+def test_geoapify_detail_enrichment_is_capped_for_broad_searches() -> None:
+    assert _detail_enrichment_limit(10) == 10
+    assert _detail_enrichment_limit(100) == 40
+    assert _detail_enrichment_limit(250) == 50

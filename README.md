@@ -47,7 +47,7 @@ Open `http://127.0.0.1:8000`.
 CLI:
 
 ```powershell
-research-agent "Cardiologists in Birmingham" --limit 100 --json-out report.json
+research-agent "Cardiologists in Birmingham" --limit 200 --json-out report.json
 ```
 
 MongoDB persistence is enabled when `MONGO_URI` is set:
@@ -63,7 +63,7 @@ Google Maps/Places enrichment is enabled when `GOOGLE_MAPS_API_KEY` is set. The 
 
 ```powershell
 $env:GOOGLE_MAPS_API_KEY="your-key"
-research-agent "Dental clinics in Thanjavur" --limit 100
+research-agent "Dental clinics in Thanjavur" --limit 200
 ```
 
 This is the recommended way to get reliable local phone numbers, addresses, ratings, review counts, and map URLs.
@@ -73,7 +73,7 @@ Geoapify enrichment is enabled when `GEOAPIFY_API_KEY` is set. It is a strong fr
 ```powershell
 $env:GEOAPIFY_API_KEY="your-key"
 $env:GEOAPIFY_FALLBACK_API_KEY="optional-second-key"
-research-agent "Doctors in Thanjavur" --limit 100
+research-agent "Doctors in Thanjavur" --limit 200
 ```
 
 Geoapify is especially useful for names, addresses, coordinates, categories, websites, email, phone numbers when present in OSM, and opening hours when present. It does not provide Google review counts.
@@ -82,16 +82,17 @@ Serper discovery is enabled when `SERPER_API_KEY` is set. It adds Google-style P
 
 ```powershell
 $env:SERPER_API_KEY="your-key"
-research-agent "Electricians in Trichy" --limit 100
-research-agent "Restaurants in Austin" --limit 100
-research-agent "Shopping stores in Dallas" --limit 100
+research-agent "Electricians in Trichy" --limit 200
+research-agent "Restaurants in Austin" --limit 200
+research-agent "Shopping stores in Dallas" --limit 200
+research-agent "Hotels in Tamilnadu" --limit 200
 ```
 
 Tavily discovery is enabled when `TAVILY_API_KEY` is set. It adds agent-oriented web search evidence for official sites, directories, source snippets, and RAG-style retrieval:
 
 ```powershell
 $env:TAVILY_API_KEY="your-key"
-research-agent "Plumbers in Houston" --limit 100
+research-agent "Plumbers in Houston" --limit 200
 ```
 
 Recommended free/low-cost stack:

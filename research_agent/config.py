@@ -51,7 +51,7 @@ class Settings:
     search_query_budget: int = int(os.getenv("RESEARCH_SEARCH_QUERY_BUDGET", "36"))
     lead_enrichment_limit: int = int(os.getenv("RESEARCH_LEAD_ENRICHMENT_LIMIT", "100"))
     max_search_pages: int = int(os.getenv("RESEARCH_MAX_SEARCH_PAGES", "2"))
-    max_result_urls: int = int(os.getenv("RESEARCH_MAX_RESULT_URLS", "300"))
+    max_result_urls: int = int(os.getenv("RESEARCH_MAX_RESULT_URLS", "1000"))
     user_agent: str = os.getenv(
         "RESEARCH_USER_AGENT",
         "Mozilla/5.0 (compatible; BusinessResearchAgent/0.1; +https://example.local/research-agent)",

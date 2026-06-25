@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from difflib import SequenceMatcher
+from urllib.parse import urlparse
 
 from research_agent.models import BusinessRecord
 from research_agent.normalization import (
@@ -22,10 +23,9 @@ def business_match_score(left: BusinessRecord, right: BusinessRecord) -> float:
         normalize_phone(left.phone)
         and normalize_phone(left.phone) == normalize_phone(right.phone)
     )
-    website_match = (
-        normalize_url(left.website)
-        and normalize_url(left.website) == normalize_url(right.website)
-    )
+    left_website = _identity_website(left.website)
+    right_website = _identity_website(right.website)
+    website_match = left_website and left_website == right_website
     name_score = _similarity(normalize_text(left.business_name), normalize_text(right.business_name))
     address_score = _similarity(normalize_address(left.address), normalize_address(right.address))
     score = max(name_score * 0.55 + address_score * 0.45, name_score * 0.75)
@@ -36,6 +36,18 @@ def business_match_score(left: BusinessRecord, right: BusinessRecord) -> float:
     if phone_match and name_score > 0.45:
         score = 0.99
     return score
+
+
+def _identity_website(value: str) -> str:
+    normalized = normalize_url(value)
+    if not normalized:
+        return ""
+    host = urlparse(value if "://" in str(value) else f"https://{value}").netloc.lower().removeprefix("www.")
+    if host in {"openstreetmap.org", "google.com", "maps.google.com", "google.co.in"}:
+        return ""
+    if host.endswith(".google.com") or host.endswith(".openstreetmap.org"):
+        return ""
+    return normalized
 
 
 def merge_businesses(primary: BusinessRecord, duplicate: BusinessRecord) -> BusinessRecord:

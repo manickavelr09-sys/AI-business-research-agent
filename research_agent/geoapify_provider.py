@@ -67,10 +67,12 @@ class GeoapifyProvider:
     async def search(self, query: SearchQuery, limit: int = 50) -> list[BusinessRecord]:
         if not self.enabled or not query.location:
             return []
-        search_locations = region_search_locations(query.location, limit=12) or [query.location]
+        search_locations = region_search_locations(query.location, limit=30) or [query.location]
         categories = self._categories(query.category)
         records: list[BusinessRecord] = []
         seen: set[str] = set()
+        detail_enriched = 0
+        detail_limit = _detail_enrichment_limit(limit)
         for search_location in search_locations:
             location = await self._geocode_location(search_location, parent_location=query.location)
             if not location:
@@ -92,7 +94,9 @@ class GeoapifyProvider:
                         if not self._matches_query(properties, query, search_location):
                             continue
                         record = self._record_from_feature(feature)
-                        await self._enrich_details(record, str(place_id), properties)
+                        if detail_enriched < detail_limit:
+                            await self._enrich_details(record, str(place_id), properties)
+                            detail_enriched += 1
                         records.append(record)
                         if len(records) >= limit:
                             break
@@ -175,7 +179,6 @@ class GeoapifyProvider:
         }
         for field_name, value in mapping.items():
             record.add_evidence(SourceEvidence(field_name, value, source_url, "geoapify", 0.78))
-        record.add_evidence(SourceEvidence("website", source_url, source_url, "geoapify", 0.78))
         return record
 
     def _apply_detail_properties(
@@ -262,6 +265,14 @@ def _country_name(country_code: str) -> str:
         "ca": "Canada",
         "ae": "United Arab Emirates",
     }.get(country_code, "")
+
+
+def _detail_enrichment_limit(limit: int) -> int:
+    if limit <= 25:
+        return limit
+    if limit <= 100:
+        return 40
+    return 50
 
 
 def _source_url(properties: dict) -> str:
