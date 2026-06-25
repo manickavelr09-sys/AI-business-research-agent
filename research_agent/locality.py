@@ -13,6 +13,7 @@ LOCATION_CORRECTIONS = {
     "ooty": "ooty",
     "udhagamandalam": "ooty",
     "karaikkudi": "karaikudi",
+    "cape comorin": "kanyakumari",
 }
 
 LOCATION_ALIASES = {
@@ -20,6 +21,10 @@ LOCATION_ALIASES = {
     "tiruchirappalli": ["tiruchirappalli", "trichy", "tiruchi", "tamil nadu"],
     "ooty": ["ooty", "udhagamandalam", "nilgiris", "the nilgiris", "ooty tamil nadu"],
     "karaikudi": ["karaikudi", "karaikkudi", "karaikudi tamil nadu", "sivaganga", "sivagangai"],
+    "kanyakumari": ["kanyakumari", "kanniyakumari", "cape comorin", "kanyakumari tamil nadu", "tamil nadu"],
+    "madurai": ["madurai", "madurai tamil nadu", "tamil nadu"],
+    "coimbatore": ["coimbatore", "kovai", "coimbatore tamil nadu", "tamil nadu"],
+    "chennai": ["chennai", "madras", "chennai tamil nadu", "tamil nadu"],
 }
 
 OFF_LOCATION_HINTS = {

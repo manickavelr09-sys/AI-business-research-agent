@@ -87,7 +87,7 @@ class SerperPlacesProvider:
 
 def _country_hint(query: str) -> str:
     lowered = query.lower()
-    if any(value in lowered for value in ("india", "tamil nadu", "thanjavur", "trichy", "tiruchirappalli", "karaikudi", "karaikkudi", "sivaganga", "sivagangai", "ooty", "udhagamandalam")):
+    if any(value in lowered for value in ("india", "tamil nadu", "thanjavur", "trichy", "tiruchirappalli", "karaikudi", "karaikkudi", "sivaganga", "sivagangai", "ooty", "udhagamandalam", "kanyakumari", "kanniyakumari", "madurai", "coimbatore", "kovai", "chennai", "mumbai", "delhi", "pune", "kolkata", "hyderabad", "bangalore", "bengaluru")):
         return "in"
     if any(value in lowered for value in ("united kingdom", "birmingham uk", "london", "manchester")):
         return "gb"

@@ -6,9 +6,11 @@ from pathlib import Path
 
 
 def _load_dotenv(path: str = ".env") -> None:
-    env_path = Path(path)
-    if not env_path.exists():
+    env_paths = [Path(path), Path(__file__).resolve().parents[1] / path]
+    existing_paths = [env_path for env_path in dict.fromkeys(env_paths) if env_path.exists()]
+    if not existing_paths:
         return
+    env_path = existing_paths[0]
     for raw_line in env_path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -58,12 +60,11 @@ class Settings:
     mongo_uri: str = os.getenv("MONGO_URI", "")
     mongo_database: str = os.getenv("MONGO_DATABASE", "business_research")
     mongo_collection_prefix: str = os.getenv("MONGO_COLLECTION_PREFIX", "research")
-    google_maps_api_key: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
+    google_maps_api_key: str = os.getenv("GOOGLE_MAPS_API_KEY", os.getenv("GOOGLE_PLACES_API_KEY", ""))
     geoapify_api_key: str = os.getenv("GEOAPIFY_API_KEY", "")
     geoapify_fallback_api_key: str = os.getenv("GEOAPIFY_FALLBACK_API_KEY", "")
     serper_api_key: str = os.getenv("SERPER_API_KEY", "")
     tavily_api_key: str = os.getenv("TAVILY_API_KEY", "")
-    brave_search_api_key: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
     llm_api_key: str = os.getenv("LLM_API_KEY", os.getenv("OPENAI_API_KEY", ""))
     llm_base_url: str = os.getenv("LLM_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"))
     llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")

@@ -11,7 +11,6 @@ SOURCE_TYPE_SCORES = {
     "serper_places": 0.86,
     "serper_search": 0.62,
     "tavily_search": 0.68,
-    "brave_search": 0.66,
     "geoapify": 0.78,
     "healthcare_directory": 0.82,
     "legal_directory": 0.82,

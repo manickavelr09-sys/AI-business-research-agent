@@ -19,7 +19,7 @@ from research_agent.places_provider import GooglePlacesProvider
 from research_agent.query_parser import parse_user_query
 from research_agent.record_quality import should_stream_record
 from research_agent.report import data_quality_summary, verified_count
-from research_agent.search_providers import BraveSearchProvider, BingHtmlProvider, DuckDuckGoHtmlProvider, SearchProvider, SerperSearchProvider, TavilySearchProvider
+from research_agent.search_providers import BingHtmlProvider, DuckDuckGoHtmlProvider, SearchProvider, SerperSearchProvider, TavilySearchProvider
 from research_agent.serper_provider import SerperPlacesProvider
 from research_agent.storage import ResearchCache
 from research_agent.verification import verify_record
@@ -37,7 +37,6 @@ class ResearchAgent:
         self.providers: list[SearchProvider] = [
             SerperSearchProvider(self.http, self.cache),
             TavilySearchProvider(self.http, self.cache),
-            BraveSearchProvider(self.http, self.cache),
             DuckDuckGoHtmlProvider(self.http, self.cache),
             BingHtmlProvider(self.http, self.cache),
         ]
@@ -61,13 +60,21 @@ class ResearchAgent:
         source_errors: list[str] = []
         semaphore = asyncio.Semaphore(self.settings.concurrency)
         records: list[BusinessRecord] = []
+        for source_name, enabled in [
+            ("geoapify", self.geoapify.enabled),
+            ("google_places", self.places.enabled),
+            ("serper_places", self.serper_places.enabled),
+        ]:
+            if not enabled:
+                source_errors.append(f"{source_name}:disabled")
+                yield {"event": "source_skipped", "source": source_name, "reason": "missing_api_key"}
         try:
             geoapify_records = await self.geoapify.search(parsed, limit=min(target_limit, 120))
         except Exception as exc:
             geoapify_records = []
             source_errors.append(f"geoapify:{type(exc).__name__}")
             yield {"event": "source_error", "source": "geoapify", "error": type(exc).__name__}
-        if geoapify_records:
+        if self.geoapify.enabled:
             searched_sources.add("geoapify")
             yield {"event": "geoapify_complete", "candidate_records": len(geoapify_records)}
 
@@ -77,7 +84,7 @@ class ResearchAgent:
             place_records = []
             source_errors.append(f"google_places:{type(exc).__name__}")
             yield {"event": "source_error", "source": "google_places", "error": type(exc).__name__}
-        if place_records:
+        if self.places.enabled:
             searched_sources.add("google_places")
             yield {"event": "places_complete", "candidate_records": len(place_records)}
 
@@ -87,7 +94,7 @@ class ResearchAgent:
             serper_place_records = []
             source_errors.append(f"serper_places:{type(exc).__name__}")
             yield {"event": "source_error", "source": "serper_places", "error": type(exc).__name__}
-        if serper_place_records:
+        if self.serper_places.enabled:
             searched_sources.add("serper_places")
             yield {"event": "serper_places_complete", "candidate_records": len(serper_place_records)}
 

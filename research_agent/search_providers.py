@@ -163,51 +163,6 @@ class TavilySearchProvider(SearchProvider):
         ]
 
 
-class BraveSearchProvider(SearchProvider):
-    name = "brave_search"
-
-    @property
-    def enabled(self) -> bool:
-        return bool(self.client.settings.brave_search_api_key)
-
-    async def _search_uncached(self, query: str, page: int = 1) -> list[SearchResult]:
-        if not self.enabled:
-            return []
-        offset = max(0, page - 1) * 10
-        params = {
-            "q": query,
-            "count": "10",
-            "offset": str(offset),
-            "search_lang": "en",
-            "safesearch": "moderate",
-        }
-        country = _brave_country_hint(query)
-        if country:
-            params["country"] = country
-        try:
-            response = await self.client.client.get(
-                "https://api.search.brave.com/res/v1/web/search",
-                params=params,
-                headers={"X-Subscription-Token": self.client.settings.brave_search_api_key},
-            )
-        except httpx.HTTPError:
-            return []
-        if response.status_code >= 400:
-            return []
-        data = response.json()
-        return [
-            SearchResult(
-                title=item.get("title", ""),
-                url=item.get("url", ""),
-                snippet=item.get("description", ""),
-                provider=self.name,
-                rank=index + offset,
-            )
-            for index, item in enumerate(data.get("web", {}).get("results", []), start=1)
-            if item.get("url")
-        ]
-
-
 def _strip_tags(value: str) -> str:
     value = re.sub(r"<[^>]+>", " ", value)
     return " ".join(html.unescape(value).split())
@@ -280,7 +235,3 @@ def _country_hint(query: str) -> str:
 
 def _tavily_country_hint(query: str) -> str:
     return {"in": "india", "gb": "united kingdom", "us": "united states"}.get(_country_hint(query), "")
-
-
-def _brave_country_hint(query: str) -> str:
-    return {"in": "IN", "gb": "GB", "us": "US"}.get(_country_hint(query), "")
