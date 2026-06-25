@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from research_agent.models import SearchQuery, SearchResult
 from research_agent.locality import (
     category_expansions,
+    expanded_search_locations,
     has_location_signal,
     has_wrong_location_signal,
     location_aliases,
@@ -138,7 +139,7 @@ def build_source_plan(query: SearchQuery, budget: int = 36) -> list[SourceQuery]
     base = query.display()
     industry = infer_industry(query.category)
     categories = category_expansions(query.category)
-    locations = location_aliases(query.location) if query.location else [""]
+    locations = expanded_search_locations(query.location, limit=20) if query.location else [""]
     primary_location = locations[0] if locations else query.location
     plan: list[SourceQuery] = []
 
@@ -235,7 +236,7 @@ def build_discovery_queries(query: SearchQuery) -> list[str]:
     base = query.display()
     industry = infer_industry(query.category)
     categories = category_expansions(query.category)
-    locations = location_aliases(query.location) if query.location else [""]
+    locations = expanded_search_locations(query.location, limit=20) if query.location else [""]
     queries = [
         base,
         f"{base} phone address website",

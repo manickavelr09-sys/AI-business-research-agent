@@ -30,3 +30,14 @@ def test_serper_query_expansion_is_general_business_friendly() -> None:
     query = SearchQuery(raw="restaurants in trichy", category="restaurants", location="trichy")
 
     assert "restaurants in trichy" in provider._queries(query)
+
+
+def test_serper_query_expands_state_level_location() -> None:
+    provider = SerperPlacesProvider.__new__(SerperPlacesProvider)
+    query = SearchQuery(raw="dentists in tamilnadu", category="dentists", location="tamil nadu")
+    queries = provider._queries(query)
+
+    assert "dentists in chennai" in queries
+    assert "dentists in coimbatore" in queries
+    assert "dentists in madurai" in queries
+    assert len(queries) > 20

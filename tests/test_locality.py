@@ -1,5 +1,5 @@
 from research_agent.discovery import filter_result, result_relevance_score
-from research_agent.locality import has_location_signal, location_aliases, normalize_location
+from research_agent.locality import expanded_search_locations, has_location_signal, location_aliases, normalize_location, region_search_locations
 from research_agent.models import SearchQuery, SearchResult
 
 
@@ -42,3 +42,15 @@ def test_local_result_is_kept() -> None:
         rank=1,
     )
     assert filter_result(result, query)
+
+
+def test_state_level_location_expands_to_major_city_searches() -> None:
+    assert normalize_location("tamilnadu") == "tamil nadu"
+    locations = region_search_locations("tamilnadu")
+
+    assert "chennai" in locations
+    assert "coimbatore" in locations
+    assert "madurai" in locations
+    assert "tiruchirappalli" in locations
+    assert len(expanded_search_locations("tamil nadu")) >= 10
+    assert has_location_signal("Dental clinic in Chennai", "tamil nadu")

@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 
 from research_agent.config import Settings
 from research_agent.http_client import HttpClient
-from research_agent.locality import category_expansions, location_aliases
+from research_agent.locality import category_expansions, expanded_search_locations
 from research_agent.models import BusinessRecord, SearchQuery, SourceEvidence
 
 
@@ -49,7 +49,7 @@ class GooglePlacesProvider:
     def _queries(self, query: SearchQuery) -> list[str]:
         searches = []
         for category in category_expansions(query.category):
-            for location in location_aliases(query.location)[:2]:
+            for location in expanded_search_locations(query.location, limit=12):
                 searches.append(f"{category} in {location}")
         return list(dict.fromkeys(searches))
 

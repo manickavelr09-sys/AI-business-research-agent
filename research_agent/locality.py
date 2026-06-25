@@ -27,6 +27,53 @@ LOCATION_ALIASES = {
     "chennai": ["chennai", "madras", "chennai tamil nadu", "tamil nadu"],
 }
 
+REGION_SEARCH_LOCATIONS = {
+    "tamil nadu": [
+        "chennai",
+        "coimbatore",
+        "madurai",
+        "tiruchirappalli",
+        "salem",
+        "tirunelveli",
+        "thanjavur",
+        "vellore",
+        "erode",
+        "thoothukudi",
+        "dindigul",
+        "kanyakumari",
+        "karur",
+        "namakkal",
+        "cuddalore",
+        "kanchipuram",
+        "tiruppur",
+        "sivaganga",
+        "karaikudi",
+        "nagapattinam",
+    ],
+    "tamilnadu": [
+        "chennai",
+        "coimbatore",
+        "madurai",
+        "tiruchirappalli",
+        "salem",
+        "tirunelveli",
+        "thanjavur",
+        "vellore",
+        "erode",
+        "thoothukudi",
+        "dindigul",
+        "kanyakumari",
+        "karur",
+        "namakkal",
+        "cuddalore",
+        "kanchipuram",
+        "tiruppur",
+        "sivaganga",
+        "karaikudi",
+        "nagapattinam",
+    ],
+}
+
 OFF_LOCATION_HINTS = {
     "gujarat",
     "ahmedabad",
@@ -94,6 +141,8 @@ CATEGORY_CORRECTIONS = {
 
 def normalize_location(value: str) -> str:
     normalized = normalize_text(value)
+    if normalized == "tamilnadu":
+        return "tamil nadu"
     corrected = LOCATION_CORRECTIONS.get(normalized)
     if corrected:
         return corrected
@@ -111,6 +160,21 @@ def location_aliases(value: str) -> list[str]:
     return list(dict.fromkeys([alias for alias in aliases if alias]))
 
 
+def region_search_locations(value: str, limit: int = 20) -> list[str]:
+    normalized = normalize_text(normalize_location(value))
+    locations = REGION_SEARCH_LOCATIONS.get(normalized, [])
+    if not locations:
+        return []
+    return locations[:limit]
+
+
+def expanded_search_locations(value: str, limit: int = 20) -> list[str]:
+    regional = region_search_locations(value, limit=limit)
+    if regional:
+        return regional
+    return location_aliases(value)[:limit]
+
+
 def category_expansions(category: str) -> list[str]:
     category = normalize_category(category)
     normalized = normalize_text(category)
@@ -120,6 +184,9 @@ def category_expansions(category: str) -> list[str]:
 
 def has_location_signal(text: str, location: str) -> bool:
     haystack = normalize_text(text)
+    region_locations = region_search_locations(location)
+    if region_locations and any(normalize_text(item) in haystack for item in region_locations):
+        return True
     return any(normalize_text(alias) in haystack for alias in location_aliases(location))
 
 

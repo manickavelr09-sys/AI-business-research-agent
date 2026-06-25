@@ -5,7 +5,7 @@ from urllib.parse import quote_plus
 
 from research_agent.config import Settings
 from research_agent.http_client import HttpClient
-from research_agent.locality import category_expansions, has_location_signal, location_aliases
+from research_agent.locality import category_expansions, has_location_signal, location_aliases, region_search_locations
 from research_agent.models import BusinessRecord, SearchQuery, SourceEvidence
 
 
@@ -67,33 +67,37 @@ class GeoapifyProvider:
     async def search(self, query: SearchQuery, limit: int = 50) -> list[BusinessRecord]:
         if not self.enabled or not query.location:
             return []
-        location = await self._geocode_location(query.location)
-        if not location:
-            return []
-        lat, lon = location
+        search_locations = region_search_locations(query.location, limit=12) or [query.location]
         categories = self._categories(query.category)
         records: list[BusinessRecord] = []
         seen: set[str] = set()
-        for category in categories:
-            if len(records) >= limit:
-                break
-            for offset in range(0, min(limit, 100), 20):
-                page = await self._places(category, lat, lon, limit=min(20, limit - len(records)), offset=offset)
-                if not page:
+        for search_location in search_locations:
+            location = await self._geocode_location(search_location)
+            if not location:
+                continue
+            lat, lon = location
+            for category in categories:
+                if len(records) >= limit:
                     break
-                for feature in page:
-                    properties = feature.get("properties", {})
-                    place_id = properties.get("place_id") or properties.get("datasource", {}).get("raw", {}).get("osm_id")
-                    if not place_id or place_id in seen:
-                        continue
-                    seen.add(str(place_id))
-                    if not self._matches_query(properties, query):
-                        continue
-                    record = self._record_from_feature(feature)
-                    await self._enrich_details(record, str(place_id), properties)
-                    records.append(record)
-                    if len(records) >= limit:
+                for offset in range(0, min(limit, 100), 20):
+                    page = await self._places(category, lat, lon, limit=min(20, limit - len(records)), offset=offset)
+                    if not page:
                         break
+                    for feature in page:
+                        properties = feature.get("properties", {})
+                        place_id = properties.get("place_id") or properties.get("datasource", {}).get("raw", {}).get("osm_id")
+                        if not place_id or place_id in seen:
+                            continue
+                        seen.add(str(place_id))
+                        if not self._matches_query(properties, query, search_location):
+                            continue
+                        record = self._record_from_feature(feature)
+                        await self._enrich_details(record, str(place_id), properties)
+                        records.append(record)
+                        if len(records) >= limit:
+                            break
+                if len(records) >= limit:
+                    break
         return records
 
     async def _geocode_location(self, location: str) -> tuple[float, float] | None:
@@ -210,7 +214,7 @@ class GeoapifyProvider:
             category_values = ["commercial", "healthcare", "service"]
         return list(dict.fromkeys(category_values))
 
-    def _matches_query(self, properties: dict, query: SearchQuery) -> bool:
+    def _matches_query(self, properties: dict, query: SearchQuery, search_location: str | None = None) -> bool:
         text = " ".join(
             str(value)
             for value in [
@@ -223,7 +227,7 @@ class GeoapifyProvider:
                 " ".join(properties.get("categories", [])) if isinstance(properties.get("categories"), list) else "",
             ]
         )
-        if not has_location_signal(text, query.location):
+        if not has_location_signal(text, query.location) and not (search_location and has_location_signal(text, search_location)):
             return False
         category_terms = [item.lower().rstrip("s") for item in category_expansions(query.category)]
         lowered = text.lower()
