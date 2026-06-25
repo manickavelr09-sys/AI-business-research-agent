@@ -4,7 +4,8 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from typing import AsyncIterator
-import uuid
+import hashlib
+import time
 from research_agent.agentic_rag import build_research_summary
 from research_agent.config import Settings, settings as default_settings
 from research_agent.business_enrichment import BusinessEnricher
@@ -309,7 +310,12 @@ class ResearchAgent:
 # -------------------------
 # RAG INDEXING
 # -------------------------
-        run_id = mongo_result.get("report_id") if mongo_result else str(int(time.time()))
+        def generate_run_id(query: str) -> str:
+            hash_part = hashlib.md5(query.lower().strip().encode()).hexdigest()[:8]
+            timestamp = int(time.time())
+            return f"run_{hash_part}_{timestamp}"
+
+        run_id = mongo_result.get("report_id") if mongo_result else generate_run_id(raw_query)
 
         evidence_text_items = []
 
@@ -335,9 +341,10 @@ Trust Score: {business.reliability_score}
         try:
           #test 
             await rag_pipeline.index_evidence(
-             run_id,
-            evidence_text_items
-                )
+    run_id,
+    evidence_text_items,
+    query=raw_query  # Pass query for session management!
+)
             print("CALLING RAG INDEXER")
             print("RUN ID:", run_id)
             print("ITEMS:", len(evidence_text_items))

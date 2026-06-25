@@ -1,0 +1,17 @@
+[
+  {
+    "query": "cardiologists in austin",
+    "run_id": "run_4a8ab002_1782417540",
+    "timestamp": "2026-06-25T19:59:00.131897"
+  },
+  {
+    "query": "doctors in thanjavur",
+    "run_id": "run_a13cf8fa_1782417598",
+    "timestamp": "2026-06-25T19:59:58.107618"
+  },
+  {
+    "query": "cardiologists in birmingham",
+    "run_id": "run_a5cad2f9_1782417657",
+    "timestamp": "2026-06-25T20:01:05.495291"
+  }
+]

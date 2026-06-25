@@ -1,0 +1,17 @@
+[
+  {
+    "query": "plumbers in houston",
+    "run_id": "run_002",
+    "timestamp": "2026-06-25T19:54:36.935332"
+  },
+  {
+    "query": "lawyers in chicago",
+    "run_id": "run_003",
+    "timestamp": "2026-06-25T19:54:36.954086"
+  },
+  {
+    "query": "doctors in thanjavur",
+    "run_id": "run_004",
+    "timestamp": "2026-06-25T19:54:36.974124"
+  }
+]
