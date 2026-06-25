@@ -41,3 +41,13 @@ def test_parse_multi_word_region_first_query_without_in() -> None:
     query = parse_user_query("west bengal dentists")
     assert query.category == "dentists"
     assert query.location == "west bengal"
+
+
+def test_parse_global_region_queries_without_in() -> None:
+    query = parse_user_query("texas plumbers")
+    assert query.category == "plumbers"
+    assert query.location == "texas"
+
+    canada_query = parse_user_query("restaurants ontario")
+    assert canada_query.category == "restaurants"
+    assert canada_query.location == "ontario"

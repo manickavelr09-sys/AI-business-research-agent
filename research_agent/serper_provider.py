@@ -4,7 +4,7 @@ import httpx
 
 from research_agent.config import Settings
 from research_agent.http_client import HttpClient
-from research_agent.locality import REGION_SEARCH_LOCATIONS, category_expansions, expanded_search_locations
+from research_agent.locality import category_expansions, country_hint_for_text, expanded_search_locations
 from research_agent.models import BusinessRecord, SearchQuery, SourceEvidence
 
 
@@ -86,19 +86,4 @@ class SerperPlacesProvider:
 
 
 def _country_hint(query: str) -> str:
-    lowered = query.lower()
-    if _matches_india_location(lowered):
-        return "in"
-    if any(value in lowered for value in ("india", "tamil nadu", "kerala", "thanjavur", "trichy", "tiruchirappalli", "karaikudi", "karaikkudi", "sivaganga", "sivagangai", "ooty", "udhagamandalam", "kanyakumari", "kanniyakumari", "madurai", "coimbatore", "kovai", "chennai", "kochi", "thiruvananthapuram", "kozhikode", "thrissur", "kollam", "kannur", "mumbai", "delhi", "pune", "kolkata", "hyderabad", "bangalore", "bengaluru")):
-        return "in"
-    if any(value in lowered for value in ("united kingdom", "birmingham uk", "london", "manchester")):
-        return "gb"
-    if any(value in lowered for value in ("united states", "usa", "austin", "dallas", "houston", "chicago")):
-        return "us"
-    return ""
-
-
-def _matches_india_location(lowered_query: str) -> bool:
-    if any(region in lowered_query for region in REGION_SEARCH_LOCATIONS):
-        return True
-    return any(city in lowered_query for cities in REGION_SEARCH_LOCATIONS.values() for city in cities)
+    return country_hint_for_text(query)

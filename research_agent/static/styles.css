@@ -295,6 +295,28 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.sources a {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 7px;
+  text-decoration: none;
+}
+
+.sources a:hover {
+  border-color: var(--accent);
+  background: #e6f4f1;
+}
+
 .badge {
   display: inline-block;
   margin-left: 6px;

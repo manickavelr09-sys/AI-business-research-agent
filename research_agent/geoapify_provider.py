@@ -5,7 +5,7 @@ from urllib.parse import quote_plus
 
 from research_agent.config import Settings
 from research_agent.http_client import HttpClient
-from research_agent.locality import category_expansions, has_location_signal, location_aliases, region_search_locations
+from research_agent.locality import category_expansions, country_hint_for_text, has_location_signal, location_aliases, region_search_locations
 from research_agent.models import BusinessRecord, SearchQuery, SourceEvidence
 
 
@@ -72,7 +72,7 @@ class GeoapifyProvider:
         records: list[BusinessRecord] = []
         seen: set[str] = set()
         for search_location in search_locations:
-            location = await self._geocode_location(search_location)
+            location = await self._geocode_location(search_location, parent_location=query.location)
             if not location:
                 continue
             lat, lon = location
@@ -100,8 +100,8 @@ class GeoapifyProvider:
                     break
         return records
 
-    async def _geocode_location(self, location: str) -> tuple[float, float] | None:
-        for alias in location_aliases(location):
+    async def _geocode_location(self, location: str, parent_location: str = "") -> tuple[float, float] | None:
+        for alias in _geocode_aliases(location, parent_location):
             for key in self.keys:
                 url = (
                     "https://api.geoapify.com/v1/geocode/search"
@@ -164,7 +164,7 @@ class GeoapifyProvider:
         source_url = _source_url(properties)
         record = BusinessRecord()
         mapping = {
-            "business_name": properties.get("name") or properties.get("address_line1"),
+            "business_name": properties.get("name"),
             "address": properties.get("formatted"),
             "phone": _first_contact_value(properties, ["phone", "contact:phone", "contact:mobile", "mobile"]),
             "email": _first_contact_value(properties, ["email", "contact:email"]),
@@ -237,6 +237,31 @@ class GeoapifyProvider:
 def _is_broad_local_category(category: str) -> bool:
     lowered = category.lower()
     return any(term in lowered for term in ("shop", "store", "shopping", "service", "business"))
+
+
+def _geocode_aliases(location: str, parent_location: str = "") -> list[str]:
+    aliases: list[str] = []
+    parent = (parent_location or "").strip()
+    if parent and parent.lower().strip() != location.lower().strip():
+        country = _country_name(country_hint_for_text(parent))
+        aliases.append(f"{location}, {parent}")
+        if country:
+            aliases.append(f"{location}, {parent}, {country}")
+    country = _country_name(country_hint_for_text(location))
+    if country:
+        aliases.append(f"{location}, {country}")
+    aliases.extend(location_aliases(location))
+    return list(dict.fromkeys(alias for alias in aliases if alias))
+
+
+def _country_name(country_code: str) -> str:
+    return {
+        "in": "India",
+        "us": "United States",
+        "gb": "United Kingdom",
+        "ca": "Canada",
+        "ae": "United Arab Emirates",
+    }.get(country_code, "")
 
 
 def _source_url(properties: dict) -> str:

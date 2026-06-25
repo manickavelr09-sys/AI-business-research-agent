@@ -101,6 +101,9 @@ $env:GEOAPIFY_API_KEY="your-key"
 $env:GEOAPIFY_FALLBACK_API_KEY="optional-second-key"
 $env:SERPER_API_KEY="your-key"
 $env:TAVILY_API_KEY="your-key"
+$env:LLM_API_KEY="your-openai-compatible-key"
+$env:LLM_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai"
+$env:LLM_MODEL="gemini-3.5-flash"
 python -m uvicorn research_agent.api:app --host 127.0.0.1 --port 8000
 ```
 
@@ -116,8 +119,8 @@ GEOAPIFY_FALLBACK_API_KEY
 SERPER_API_KEY
 TAVILY_API_KEY
 LLM_API_KEY
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4o-mini
+LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+LLM_MODEL=gemini-3.5-flash
 LLM_SUMMARY_ENABLED=true
 RESEARCH_ENRICHMENT_TIMEOUT_SECONDS=8
 RESEARCH_SEARCH_TIMEOUT_SECONDS=12

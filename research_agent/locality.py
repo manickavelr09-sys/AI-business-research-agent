@@ -12,6 +12,15 @@ LOCATION_CORRECTIONS = {
     "madhyapradesh": "madhya pradesh",
     "uttarpradesh": "uttar pradesh",
     "westbengal": "west bengal",
+    "unitedstates": "united states",
+    "unitedstatesofamerica": "united states",
+    "usa": "united states",
+    "u s a": "united states",
+    "uk": "united kingdom",
+    "u k": "united kingdom",
+    "uae": "united arab emirates",
+    "u a e": "united arab emirates",
+    "b c": "british columbia",
     "maharastra": "maharashtra",
     "thamjavur": "thanjavur",
     "tanjavur": "thanjavur",
@@ -33,6 +42,14 @@ LOCATION_ALIASES = {
     "coimbatore": ["coimbatore", "kovai", "coimbatore tamil nadu", "tamil nadu"],
     "chennai": ["chennai", "madras", "chennai tamil nadu", "tamil nadu"],
     "kerala": ["kerala", "kerala india"],
+    "birmingham": ["birmingham"],
+    "austin": ["austin", "austin texas", "texas"],
+    "dallas": ["dallas", "dallas texas", "texas"],
+    "houston": ["houston", "houston texas", "texas"],
+    "chicago": ["chicago", "chicago illinois", "illinois"],
+    "london": ["london", "london uk", "united kingdom", "england"],
+    "toronto": ["toronto", "toronto ontario", "ontario", "canada"],
+    "dubai": ["dubai", "dubai uae", "united arab emirates"],
 }
 
 REGION_SEARCH_LOCATIONS = {
@@ -141,6 +158,104 @@ REGION_SEARCH_LOCATIONS = {
     "ladakh": ["leh", "kargil"],
     "lakshadweep": ["kavaratti", "agatti", "minicoy"],
     "puducherry": ["puducherry", "karaikal", "yanam", "mahe"],
+    "united states": [
+        "new york",
+        "los angeles",
+        "chicago",
+        "houston",
+        "phoenix",
+        "philadelphia",
+        "san antonio",
+        "san diego",
+        "dallas",
+        "austin",
+        "birmingham alabama",
+    ],
+    "usa": [
+        "new york",
+        "los angeles",
+        "chicago",
+        "houston",
+        "phoenix",
+        "philadelphia",
+        "san antonio",
+        "san diego",
+        "dallas",
+        "austin",
+        "birmingham alabama",
+    ],
+    "alabama": ["birmingham alabama", "montgomery", "mobile", "huntsville", "tuscaloosa", "hoover"],
+    "texas": ["austin", "dallas", "houston", "san antonio", "fort worth", "el paso", "plano", "arlington"],
+    "illinois": ["chicago", "aurora illinois", "naperville", "joliet", "rockford", "springfield illinois", "peoria"],
+    "california": ["los angeles", "san diego", "san jose", "san francisco", "fresno", "sacramento", "oakland"],
+    "florida": ["miami", "orlando", "tampa", "jacksonville", "fort lauderdale", "st petersburg"],
+    "new york state": ["new york", "buffalo", "rochester", "yonkers", "syracuse", "albany"],
+    "united kingdom": ["london", "birmingham uk", "manchester", "leeds", "liverpool", "bristol", "glasgow", "edinburgh"],
+    "england": ["london", "birmingham uk", "manchester", "leeds", "liverpool", "bristol", "sheffield", "nottingham"],
+    "scotland": ["glasgow", "edinburgh", "aberdeen", "dundee", "inverness"],
+    "canada": ["toronto", "montreal", "vancouver", "calgary", "edmonton", "ottawa", "winnipeg"],
+    "ontario": ["toronto", "ottawa", "mississauga", "brampton", "hamilton", "london ontario", "kitchener"],
+    "quebec": ["montreal", "quebec city", "laval", "gatineau", "longueuil"],
+    "british columbia": ["vancouver", "surrey", "burnaby", "richmond", "victoria"],
+    "alberta": ["calgary", "edmonton", "red deer", "lethbridge", "medicine hat"],
+    "united arab emirates": ["dubai", "abu dhabi", "sharjah", "ajman", "ras al khaimah", "fujairah"],
+    "uae": ["dubai", "abu dhabi", "sharjah", "ajman", "ras al khaimah", "fujairah"],
+}
+
+INDIA_REGION_KEYS = {
+    "andhra pradesh",
+    "arunachal pradesh",
+    "assam",
+    "bihar",
+    "chhattisgarh",
+    "delhi",
+    "goa",
+    "gujarat",
+    "haryana",
+    "himachal pradesh",
+    "jharkhand",
+    "karnataka",
+    "tamil nadu",
+    "tamilnadu",
+    "kerala",
+    "madhya pradesh",
+    "maharashtra",
+    "manipur",
+    "meghalaya",
+    "mizoram",
+    "nagaland",
+    "odisha",
+    "punjab",
+    "rajasthan",
+    "sikkim",
+    "telangana",
+    "tripura",
+    "uttar pradesh",
+    "uttarakhand",
+    "west bengal",
+    "andaman and nicobar islands",
+    "chandigarh",
+    "dadra and nagar haveli and daman and diu",
+    "jammu and kashmir",
+    "ladakh",
+    "lakshadweep",
+    "puducherry",
+}
+
+COUNTRY_REGION_KEYS = {
+    "in": INDIA_REGION_KEYS,
+    "us": {"united states", "usa", "alabama", "texas", "illinois", "california", "florida", "new york state"},
+    "gb": {"united kingdom", "england", "scotland"},
+    "ca": {"canada", "ontario", "quebec", "british columbia", "alberta"},
+    "ae": {"united arab emirates", "uae"},
+}
+
+COUNTRY_ALIASES = {
+    "in": ["india", "bharat"],
+    "us": ["united states", "united states of america", "usa", "u s a"],
+    "gb": ["united kingdom", "uk", "u k", "great britain", "england", "scotland"],
+    "ca": ["canada"],
+    "ae": ["united arab emirates", "uae", "u a e"],
 }
 
 OFF_LOCATION_HINTS = {
@@ -173,6 +288,25 @@ OFF_LOCATION_HINTS = {
     "thiruvananthapuram",
     "kozhikode",
     "thrissur",
+    "texas",
+    "illinois",
+    "alabama",
+    "california",
+    "florida",
+    "ontario",
+    "quebec",
+    "united kingdom",
+    "united states",
+    "canada",
+    "united arab emirates",
+    "austin",
+    "dallas",
+    "houston",
+    "chicago",
+    "birmingham alabama",
+    "london",
+    "toronto",
+    "dubai",
 }
 
 CATEGORY_EXPANSIONS = {
@@ -193,12 +327,26 @@ CATEGORY_EXPANSIONS = {
     "school": ["school", "private school", "education", "training institute"],
     "doctors": ["doctor", "physician", "medical clinic", "hospital", "clinic"],
     "doctor": ["doctor", "physician", "medical clinic", "hospital", "clinic"],
+    "clinics": ["clinic", "medical clinic", "health clinic", "specialty clinic", "diagnostic center"],
+    "clinic": ["clinic", "medical clinic", "health clinic", "specialty clinic", "diagnostic center"],
+    "hospitals": ["hospital", "medical center", "emergency hospital", "multi specialty hospital"],
+    "hospital": ["hospital", "medical center", "emergency hospital", "multi specialty hospital"],
+    "cardiologists": ["cardiologist", "cardiology clinic", "heart clinic", "cardiac care", "heart specialist", "cardiac hospital"],
+    "cardiologist": ["cardiologist", "cardiology clinic", "heart clinic", "cardiac care", "heart specialist", "cardiac hospital"],
+    "dermatologists": ["dermatologist", "skin clinic", "dermatology clinic", "cosmetology clinic"],
+    "dermatologist": ["dermatologist", "skin clinic", "dermatology clinic", "cosmetology clinic"],
+    "pediatricians": ["pediatrician", "paediatrician", "child specialist", "children clinic"],
+    "pediatrician": ["pediatrician", "paediatrician", "child specialist", "children clinic"],
+    "pharmacies": ["pharmacy", "medical store", "chemist", "drug store"],
+    "pharmacy": ["pharmacy", "medical store", "chemist", "drug store"],
     "dentists": ["dentist", "dental clinic", "orthodontist"],
     "dentist": ["dentist", "dental clinic", "orthodontist"],
     "electricians": ["electrician", "electrical contractor", "electrical service", "electricals", "electrical works", "electrical shop", "wiring contractor", "wiring service", "electric repair"],
     "electrician": ["electrician", "electrical contractor", "electrical service", "electricals", "electrical works", "electrical shop", "wiring contractor", "wiring service", "electric repair"],
     "plumbers": ["plumber", "plumbing service", "plumbing contractor", "pipe repair"],
     "plumber": ["plumber", "plumbing service", "plumbing contractor", "pipe repair"],
+    "hvac": ["hvac contractor", "air conditioning service", "ac repair", "heating contractor", "ventilation service"],
+    "hvac contractors": ["hvac contractor", "air conditioning service", "ac repair", "heating contractor", "ventilation service"],
     "roofers": ["roofer", "roofing contractor", "roofing service"],
     "roofer": ["roofer", "roofing contractor", "roofing service"],
     "roofing contractors": ["roofing contractor", "roofer", "roofing service"],
@@ -207,8 +355,13 @@ CATEGORY_EXPANSIONS = {
     "family lawyers": ["family lawyer", "divorce lawyer", "family law attorney", "law firm"],
     "accountants": ["accountant", "chartered accountant", "tax consultant", "cpa"],
     "accountant": ["accountant", "chartered accountant", "tax consultant", "cpa"],
+    "cpa": ["cpa", "certified public accountant", "accountant", "tax consultant"],
     "mechanics": ["mechanic", "car repair", "auto repair", "automobile service"],
     "mechanic": ["mechanic", "car repair", "auto repair", "automobile service"],
+    "real estate agents": ["real estate agent", "realtor", "property consultant", "real estate agency"],
+    "realtors": ["realtor", "real estate agent", "property consultant", "real estate agency"],
+    "insurance agents": ["insurance agent", "insurance broker", "insurance agency"],
+    "travel agents": ["travel agent", "tour operator", "travel agency"],
     "repair services": ["repair service", "service centre", "service center", "appliance repair"],
 }
 
@@ -275,6 +428,29 @@ def _all_known_location_hints() -> set[str]:
     for aliases in LOCATION_ALIASES.values():
         hints.update(normalize_text(alias) for alias in aliases)
     return {normalize_text(hint) for hint in hints if normalize_text(hint)}
+
+
+def _contains_location_phrase(haystack: str, hint: str) -> bool:
+    normalized_hint = normalize_text(hint)
+    if not normalized_hint:
+        return False
+    return bool(re.search(rf"\b{re.escape(normalized_hint)}\b", haystack))
+
+
+def country_hint_for_text(text: str) -> str:
+    haystack = normalize_text(text)
+    if not haystack:
+        return ""
+    for code, aliases in COUNTRY_ALIASES.items():
+        if any(_contains_location_phrase(haystack, alias) for alias in aliases):
+            return code
+    for code, regions in COUNTRY_REGION_KEYS.items():
+        for region in regions:
+            if _contains_location_phrase(haystack, region):
+                return code
+            if any(_contains_location_phrase(haystack, city) for city in REGION_SEARCH_LOCATIONS.get(region, [])):
+                return code
+    return ""
 
 
 def region_search_locations(value: str, limit: int = 20) -> list[str]:

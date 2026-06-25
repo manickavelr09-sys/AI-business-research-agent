@@ -6,11 +6,15 @@ from research_agent.query_parser import infer_industry
 
 def test_universal_category_expansions_cover_common_businesses() -> None:
     assert "plumbing contractor" in category_expansions("plumbers")
+    assert "cardiology clinic" in category_expansions("cardiologists")
+    assert "heart specialist" in category_expansions("cardiologists")
     assert "coffee shop" in category_expansions("cafes")
     assert "showroom" in category_expansions("shopping")
     assert "beauty parlour" in category_expansions("salons")
     assert "electrical works" in category_expansions("electricians")
     assert "wiring service" in category_expansions("electricians")
+    assert "medical store" in category_expansions("pharmacies")
+    assert "property consultant" in category_expansions("real estate agents")
 
 
 def test_industry_router_handles_non_medical_businesses() -> None:

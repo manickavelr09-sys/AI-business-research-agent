@@ -75,12 +75,13 @@ function readinessGroup(label, values) {
   return `<div><strong>${escapeHtml(label)}</strong><div class="provider-pills">${items}</div></div>`;
 }
 
-function field(label, verified, fallback = "") {
+function field(label, verified, fallback = "", sources = []) {
   const value = verified?.value || fallback || "";
   if (!value || (Array.isArray(value) && value.length === 0)) return "";
   const display = Array.isArray(value) ? value.join(", ") : value;
   const level = verified?.verified_level ? `<span class="badge">${verified.verified_level}</span>` : "";
-  return `<div class="field"><div class="label">${label}${level}</div><div class="value">${escapeHtml(display)}</div></div>`;
+  const evidenceSources = verified?.sources?.length ? verified.sources : sources;
+  return `<div class="field"><div class="label">${label}${level}</div><div class="value">${escapeHtml(display)}${sourceLinks(evidenceSources)}</div></div>`;
 }
 
 function renderBusiness(business) {
@@ -89,20 +90,24 @@ function renderBusiness(business) {
   card.className = "result-card";
   card.dataset.businessKey = key;
   const verification = business.verification || {};
+  const sourceUrls = business.source_urls || {};
   const conflicts = Object.keys(business.conflicts || {});
   card.innerHTML = `
     <h2>${escapeHtml(business.business_name || "Unnamed business")}</h2>
     <div class="fields">
-      ${field("Address", verification.address, business.address)}
-      ${field("Phone", verification.phone, business.phone)}
-      ${field("Email", verification.email, business.email)}
-      ${field("Website", verification.website, business.website)}
-      ${field("Hours", verification.working_hours, business.working_hours)}
-      ${field("Rating", verification.rating, business.rating)}
-      ${field("Reviews", verification.review_count, business.review_count)}
-      ${field("License", verification.license_information, business.license_information)}
-      ${field("Services", verification.services, business.services)}
-      ${field("Certifications", verification.certifications, business.certifications)}
+      ${field("Address", verification.address, business.address, sourceUrls.address)}
+      ${field("Phone", verification.phone, business.phone, sourceUrls.phone)}
+      ${field("Email", verification.email, business.email, sourceUrls.email)}
+      ${field("Website", verification.website, business.website, sourceUrls.website)}
+      ${field("Hours", verification.working_hours, business.working_hours, sourceUrls.working_hours)}
+      ${field("Rating", verification.rating, business.rating, sourceUrls.rating)}
+      ${field("Reviews", verification.review_count, business.review_count, sourceUrls.review_count)}
+      ${field("License", verification.license_information, business.license_information, sourceUrls.license_information)}
+      ${field("Services", verification.services, business.services, sourceUrls.services)}
+      ${field("Specialties", verification.specialties, business.specialties, sourceUrls.specialties)}
+      ${field("Certifications", verification.certifications, business.certifications, sourceUrls.certifications)}
+      ${field("Awards", verification.awards, business.awards, sourceUrls.awards)}
+      ${field("Social", verification.social_profiles, business.social_profiles, sourceUrls.social_profiles)}
       <div class="field"><div class="label">Reliability</div><div class="value">${business.reliability_score}</div></div>
       <div class="field"><div class="label">Conflicts</div><div class="value conflict">${conflicts.join(", ") || "None"}</div></div>
     </div>
@@ -160,6 +165,29 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replaceAll("'", "&#39;");
+}
+
+function sourceLinks(sources = []) {
+  const unique = [...new Set((sources || []).filter(Boolean))].slice(0, 3);
+  if (!unique.length) return "";
+  const links = unique.map((url, index) => {
+    const label = sourceLabel(url, index + 1);
+    return `<a href="${escapeAttr(url)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`;
+  });
+  return `<div class="sources">${links.join("")}</div>`;
+}
+
+function sourceLabel(url, fallbackIndex) {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, "");
+  } catch {
+    return `source ${fallbackIndex}`;
+  }
 }
 
 function businessKey(business) {

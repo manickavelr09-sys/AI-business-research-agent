@@ -1,5 +1,13 @@
 from research_agent.discovery import filter_result, result_relevance_score
-from research_agent.locality import expanded_search_locations, has_location_signal, has_wrong_location_signal, location_aliases, normalize_location, region_search_locations
+from research_agent.locality import (
+    country_hint_for_text,
+    expanded_search_locations,
+    has_location_signal,
+    has_wrong_location_signal,
+    location_aliases,
+    normalize_location,
+    region_search_locations,
+)
 from research_agent.models import SearchQuery, SearchResult
 
 
@@ -113,3 +121,22 @@ def test_city_query_allows_parent_state_but_rejects_other_state() -> None:
     assert has_wrong_location_signal("Dental clinic in Kolkata West Bengal", "kochi")
     assert not has_wrong_location_signal("Dental clinic in Chennai Tamil Nadu", "chennai")
     assert has_wrong_location_signal("Dental clinic in Pune Maharashtra", "chennai")
+
+
+def test_global_regions_expand_without_cross_country_poisoning() -> None:
+    assert "austin" in region_search_locations("texas")
+    assert "chicago" in region_search_locations("illinois")
+    assert "toronto" in region_search_locations("ontario")
+    assert "dubai" in region_search_locations("uae")
+    assert has_location_signal("Dentist in Austin Texas", "texas")
+    assert has_wrong_location_signal("Dentist in Kolkata West Bengal", "texas")
+
+
+def test_country_hints_are_specific_to_region_sets() -> None:
+    assert country_hint_for_text("dentists in tamil nadu") == "in"
+    assert country_hint_for_text("plumbers in texas") == "us"
+    assert country_hint_for_text("restaurants in ontario") == "ca"
+    assert country_hint_for_text("electricians in dubai") == "ae"
+    assert country_hint_for_text("cardiologists in birmingham") == ""
+    assert country_hint_for_text("cardiologists in birmingham alabama") == "us"
+    assert country_hint_for_text("cardiologists in birmingham uk") == "gb"
