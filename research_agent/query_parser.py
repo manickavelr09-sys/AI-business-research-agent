@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 from research_agent.models import SearchQuery
-from research_agent.locality import normalize_category, normalize_location
+from research_agent.locality import is_known_location, normalize_category, normalize_location
 
 
 LOCATION_SPLIT_RE = re.compile(r"\s+(?:in|near|around|within)\s+", re.IGNORECASE)
@@ -17,9 +17,31 @@ def parse_user_query(raw_query: str) -> SearchQuery:
     if len(parts) == 2:
         category, location = parts[0].strip(" ,"), normalize_location(parts[1].strip(" ,"))
     else:
-        category, location = cleaned, ""
+        inferred = _parse_location_without_preposition(cleaned)
+        if inferred:
+            category, location = inferred
+        else:
+            category, location = cleaned, ""
     category = normalize_category(category or raw_query)
     return SearchQuery(raw=raw_query, category=category, location=location)
+
+
+def _parse_location_without_preposition(value: str) -> tuple[str, str] | None:
+    tokens = value.split()
+    if len(tokens) < 2:
+        return None
+    max_location_tokens = min(3, len(tokens) - 1)
+    for size in range(max_location_tokens, 0, -1):
+        prefix_location = " ".join(tokens[:size]).strip(" ,")
+        suffix_category = " ".join(tokens[size:]).strip(" ,")
+        if suffix_category and is_known_location(prefix_location):
+            return suffix_category, normalize_location(prefix_location)
+
+        suffix_location = " ".join(tokens[-size:]).strip(" ,")
+        prefix_category = " ".join(tokens[:-size]).strip(" ,")
+        if prefix_category and is_known_location(suffix_location):
+            return prefix_category, normalize_location(suffix_location)
+    return None
 
 
 def infer_industry(category: str) -> str:

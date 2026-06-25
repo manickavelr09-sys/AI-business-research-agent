@@ -1,5 +1,5 @@
 from research_agent.discovery import filter_result, result_relevance_score
-from research_agent.locality import expanded_search_locations, has_location_signal, location_aliases, normalize_location, region_search_locations
+from research_agent.locality import expanded_search_locations, has_location_signal, has_wrong_location_signal, location_aliases, normalize_location, region_search_locations
 from research_agent.models import SearchQuery, SearchResult
 
 
@@ -54,3 +54,62 @@ def test_state_level_location_expands_to_major_city_searches() -> None:
     assert "tiruchirappalli" in locations
     assert len(expanded_search_locations("tamil nadu")) >= 10
     assert has_location_signal("Dental clinic in Chennai", "tamil nadu")
+
+
+def test_kerala_region_expands_and_rejects_other_states() -> None:
+    locations = region_search_locations("kerala")
+
+    assert "kochi" in locations
+    assert "thiruvananthapuram" in locations
+    assert "kozhikode" in locations
+    assert has_location_signal("Dental clinic in Kochi Kerala", "kerala")
+    assert not has_wrong_location_signal("Dental clinic in Kochi Kerala", "kerala")
+    assert has_wrong_location_signal("Dental clinic in Kolkata West Bengal", "kerala")
+    assert has_wrong_location_signal("Dental clinic in Pune Maharashtra", "kerala")
+
+
+def test_kerala_query_filters_west_bengal_and_maharashtra_results() -> None:
+    query = SearchQuery(raw="kerala dentists", category="dentists", location="kerala")
+    west_bengal = SearchResult(
+        title="Best Dentists in Kolkata West Bengal",
+        url="https://example.com/kolkata-dentists",
+        snippet="Dental clinics in Kolkata West Bengal with phone numbers",
+        provider="test",
+        rank=1,
+    )
+    maharashtra = SearchResult(
+        title="Dental Clinic in Pune Maharashtra",
+        url="https://example.com/pune-dental",
+        snippet="Dentists in Pune Maharashtra",
+        provider="test",
+        rank=2,
+    )
+
+    assert not filter_result(west_bengal, query)
+    assert not filter_result(maharashtra, query)
+
+
+def test_each_supported_indian_region_has_city_fanout() -> None:
+    for region in [
+        "andhra pradesh",
+        "assam",
+        "bihar",
+        "delhi",
+        "gujarat",
+        "karnataka",
+        "kerala",
+        "maharashtra",
+        "rajasthan",
+        "tamil nadu",
+        "telangana",
+        "uttar pradesh",
+        "west bengal",
+    ]:
+        assert len(region_search_locations(region)) >= 3
+
+
+def test_city_query_allows_parent_state_but_rejects_other_state() -> None:
+    assert not has_wrong_location_signal("Dental clinic in Kochi Kerala", "kochi")
+    assert has_wrong_location_signal("Dental clinic in Kolkata West Bengal", "kochi")
+    assert not has_wrong_location_signal("Dental clinic in Chennai Tamil Nadu", "chennai")
+    assert has_wrong_location_signal("Dental clinic in Pune Maharashtra", "chennai")

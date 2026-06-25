@@ -41,3 +41,16 @@ def test_serper_query_expands_state_level_location() -> None:
     assert "dentists in coimbatore" in queries
     assert "dentists in madurai" in queries
     assert len(queries) > 20
+
+
+def test_serper_query_expands_other_state_locations() -> None:
+    provider = SerperPlacesProvider.__new__(SerperPlacesProvider)
+    queries = provider._queries(SearchQuery(raw="dentists in kerala", category="dentists", location="kerala"))
+    west_bengal_queries = provider._queries(
+        SearchQuery(raw="dentists in west bengal", category="dentists", location="west bengal")
+    )
+
+    assert "dentists in kochi" in queries
+    assert "dentists in thiruvananthapuram" in queries
+    assert "dentists in kolkata" in west_bengal_queries
+    assert "dentists in siliguri" in west_bengal_queries

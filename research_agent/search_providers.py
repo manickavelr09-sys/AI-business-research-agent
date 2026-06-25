@@ -9,6 +9,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from research_agent.http_client import HttpClient
+from research_agent.locality import REGION_SEARCH_LOCATIONS
 from research_agent.models import SearchResult
 from research_agent.storage import ResearchCache
 
@@ -224,7 +225,9 @@ def _parse_bing(body: str, provider: str) -> list[SearchResult]:
 
 def _country_hint(query: str) -> str:
     lowered = query.lower()
-    if any(value in lowered for value in ("india", "tamil nadu", "thanjavur", "trichy", "tiruchirappalli", "karaikudi", "karaikkudi", "sivaganga", "sivagangai", "ooty", "udhagamandalam", "kanyakumari", "madurai", "coimbatore", "chennai", "mumbai", "delhi", "pune", "kolkata")):
+    if _matches_india_location(lowered):
+        return "in"
+    if any(value in lowered for value in ("india", "tamil nadu", "kerala", "thanjavur", "trichy", "tiruchirappalli", "karaikudi", "karaikkudi", "sivaganga", "sivagangai", "ooty", "udhagamandalam", "kanyakumari", "madurai", "coimbatore", "chennai", "kochi", "thiruvananthapuram", "kozhikode", "thrissur", "kollam", "kannur", "mumbai", "delhi", "pune", "kolkata")):
         return "in"
     if any(value in lowered for value in ("united kingdom", "birmingham uk", "london", "manchester")):
         return "gb"
@@ -235,3 +238,9 @@ def _country_hint(query: str) -> str:
 
 def _tavily_country_hint(query: str) -> str:
     return {"in": "india", "gb": "united kingdom", "us": "united states"}.get(_country_hint(query), "")
+
+
+def _matches_india_location(lowered_query: str) -> bool:
+    if any(region in lowered_query for region in REGION_SEARCH_LOCATIONS):
+        return True
+    return any(city in lowered_query for cities in REGION_SEARCH_LOCATIONS.values() for city in cities)

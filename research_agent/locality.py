@@ -6,6 +6,13 @@ from research_agent.normalization import normalize_text
 
 
 LOCATION_CORRECTIONS = {
+    "andhrapradesh": "andhra pradesh",
+    "arunachalpradesh": "arunachal pradesh",
+    "himachalpradesh": "himachal pradesh",
+    "madhyapradesh": "madhya pradesh",
+    "uttarpradesh": "uttar pradesh",
+    "westbengal": "west bengal",
+    "maharastra": "maharashtra",
     "thamjavur": "thanjavur",
     "tanjavur": "thanjavur",
     "tanjore": "thanjavur",
@@ -25,9 +32,33 @@ LOCATION_ALIASES = {
     "madurai": ["madurai", "madurai tamil nadu", "tamil nadu"],
     "coimbatore": ["coimbatore", "kovai", "coimbatore tamil nadu", "tamil nadu"],
     "chennai": ["chennai", "madras", "chennai tamil nadu", "tamil nadu"],
+    "kerala": ["kerala", "kerala india"],
 }
 
 REGION_SEARCH_LOCATIONS = {
+    "andhra pradesh": [
+        "visakhapatnam",
+        "vijayawada",
+        "guntur",
+        "nellore",
+        "kurnool",
+        "tirupati",
+        "kakinada",
+        "rajahmundry",
+        "ananthapur",
+        "kadapa",
+    ],
+    "arunachal pradesh": ["itanagar", "naharlagun", "pasighat", "tawang", "ziro"],
+    "assam": ["guwahati", "silchar", "dibrugarh", "jorhat", "tezpur", "nagaon", "tinsukia"],
+    "bihar": ["patna", "gaya", "bhagalpur", "muzaffarpur", "darbhanga", "purnia"],
+    "chhattisgarh": ["raipur", "bhilai", "bilaspur", "durg", "korba", "raigarh"],
+    "delhi": ["new delhi", "delhi", "dwarka delhi", "rohini delhi", "saket delhi"],
+    "goa": ["panaji", "margao", "vasco da gama", "mapusa", "ponda"],
+    "gujarat": ["ahmedabad", "surat", "vadodara", "rajkot", "bhavnagar", "jamnagar", "gandhinagar"],
+    "haryana": ["gurugram", "faridabad", "panipat", "ambala", "hisar", "karnal", "rohtak"],
+    "himachal pradesh": ["shimla", "dharamshala", "solan", "mandi", "kullu", "hamirpur"],
+    "jharkhand": ["ranchi", "jamshedpur", "dhanbad", "bokaro", "deoghar", "hazaribagh"],
+    "karnataka": ["bengaluru", "mysuru", "mangaluru", "hubballi", "belagavi", "davangere", "ballari"],
     "tamil nadu": [
         "chennai",
         "coimbatore",
@@ -72,21 +103,76 @@ REGION_SEARCH_LOCATIONS = {
         "karaikudi",
         "nagapattinam",
     ],
+    "kerala": [
+        "kochi",
+        "thiruvananthapuram",
+        "kozhikode",
+        "thrissur",
+        "kollam",
+        "kannur",
+        "kottayam",
+        "alappuzha",
+        "palakkad",
+        "malappuram",
+        "pathanamthitta",
+        "kasaragod",
+        "idukki",
+        "wayanad",
+    ],
+    "madhya pradesh": ["indore", "bhopal", "jabalpur", "gwalior", "ujjain", "sagar", "rewa"],
+    "maharashtra": ["mumbai", "pune", "nagpur", "nashik", "thane", "aurangabad", "solapur", "kolhapur"],
+    "manipur": ["imphal", "thoubal", "bishnupur", "churachandpur"],
+    "meghalaya": ["shillong", "tura", "jowai", "nongpoh"],
+    "mizoram": ["aizawl", "lunglei", "champhai", "serchhip"],
+    "nagaland": ["kohima", "dimapur", "mokokchung", "tuensang"],
+    "odisha": ["bhubaneswar", "cuttack", "rourkela", "berhampur", "sambalpur", "puri"],
+    "punjab": ["ludhiana", "amritsar", "jalandhar", "patiala", "bathinda", "mohali"],
+    "rajasthan": ["jaipur", "jodhpur", "udaipur", "kota", "ajmer", "bikaner", "alwar"],
+    "sikkim": ["gangtok", "namchi", "gyalshing", "mangan"],
+    "telangana": ["hyderabad", "warangal", "nizamabad", "karimnagar", "khammam", "secunderabad"],
+    "tripura": ["agartala", "udaipur tripura", "dharmanagar", "kailashahar"],
+    "uttar pradesh": ["lucknow", "kanpur", "varanasi", "agra", "noida", "ghaziabad", "prayagraj", "meerut"],
+    "uttarakhand": ["dehradun", "haridwar", "haldwani", "roorkee", "rishikesh", "nainital"],
+    "west bengal": ["kolkata", "howrah", "durgapur", "asansol", "siliguri", "bardhaman", "kharagpur"],
+    "andaman and nicobar islands": ["port blair", "diglipur", "mayabunder"],
+    "chandigarh": ["chandigarh", "manimajra"],
+    "dadra and nagar haveli and daman and diu": ["daman", "diu", "silvassa"],
+    "jammu and kashmir": ["srinagar", "jammu", "anantnag", "baramulla", "udhampur"],
+    "ladakh": ["leh", "kargil"],
+    "lakshadweep": ["kavaratti", "agatti", "minicoy"],
+    "puducherry": ["puducherry", "karaikal", "yanam", "mahe"],
 }
 
 OFF_LOCATION_HINTS = {
     "gujarat",
+    "maharashtra",
+    "west bengal",
+    "tamil nadu",
+    "kerala",
+    "karnataka",
+    "telangana",
     "ahmedabad",
     "surat",
     "vadodara",
     "rajkot",
     "mumbai",
+    "pune",
+    "nagpur",
+    "nashik",
+    "thane",
     "delhi",
     "bangalore",
     "bengaluru",
     "hyderabad",
     "chennai",
     "kolkata",
+    "howrah",
+    "durgapur",
+    "asansol",
+    "kochi",
+    "thiruvananthapuram",
+    "kozhikode",
+    "thrissur",
 }
 
 CATEGORY_EXPANSIONS = {
@@ -160,6 +246,37 @@ def location_aliases(value: str) -> list[str]:
     return list(dict.fromkeys([alias for alias in aliases if alias]))
 
 
+def is_known_location(value: str) -> bool:
+    normalized = normalize_text(normalize_location(value))
+    if not normalized:
+        return False
+    known = set(LOCATION_ALIASES) | set(REGION_SEARCH_LOCATIONS)
+    for aliases in LOCATION_ALIASES.values():
+        known.update(normalize_text(alias) for alias in aliases)
+    for locations in REGION_SEARCH_LOCATIONS.values():
+        known.update(normalize_text(location) for location in locations)
+    return normalized in known
+
+
+def _regions_for_location(value: str) -> set[str]:
+    normalized = normalize_text(normalize_location(value))
+    regions = set()
+    for region, locations in REGION_SEARCH_LOCATIONS.items():
+        if normalized == normalize_text(region) or normalized in {normalize_text(location) for location in locations}:
+            regions.add(region)
+    return regions
+
+
+def _all_known_location_hints() -> set[str]:
+    hints = set(OFF_LOCATION_HINTS)
+    hints.update(REGION_SEARCH_LOCATIONS.keys())
+    for locations in REGION_SEARCH_LOCATIONS.values():
+        hints.update(locations)
+    for aliases in LOCATION_ALIASES.values():
+        hints.update(normalize_text(alias) for alias in aliases)
+    return {normalize_text(hint) for hint in hints if normalize_text(hint)}
+
+
 def region_search_locations(value: str, limit: int = 20) -> list[str]:
     normalized = normalize_text(normalize_location(value))
     locations = REGION_SEARCH_LOCATIONS.get(normalized, [])
@@ -192,8 +309,12 @@ def has_location_signal(text: str, location: str) -> bool:
 
 def has_wrong_location_signal(text: str, location: str) -> bool:
     haystack = normalize_text(text)
-    aliases = set(location_aliases(location))
-    for hint in OFF_LOCATION_HINTS:
+    aliases = {normalize_text(alias) for alias in location_aliases(location)}
+    aliases.update(normalize_text(item) for item in region_search_locations(location))
+    for region in _regions_for_location(location):
+        aliases.add(normalize_text(region))
+        aliases.update(normalize_text(item) for item in REGION_SEARCH_LOCATIONS.get(region, []))
+    for hint in _all_known_location_hints():
         if hint in aliases:
             continue
         if re.search(rf"\b{re.escape(hint)}\b", haystack):
