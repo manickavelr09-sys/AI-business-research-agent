@@ -65,6 +65,10 @@ def build_research_pdf(report: dict[str, Any]) -> bytes:
     story.append(Spacer(1, 0.15 * inch))
     story.append(_summary_table(summary, report.get("data_quality_summary", {}), styles))
     story.append(Spacer(1, 0.2 * inch))
+    research_summary = report.get("research_summary", {})
+    if research_summary:
+        story.extend(_research_summary_section(research_summary, styles))
+        story.append(Spacer(1, 0.15 * inch))
 
     results = report.get("business_results", [])
     if not results:
@@ -104,6 +108,33 @@ def _summary_table(summary: dict[str, Any], quality: dict[str, Any], styles) -> 
         )
     )
     return table
+
+
+def _research_summary_section(summary: dict[str, Any], styles) -> list[Any]:
+    lines: list[Any] = [Paragraph("Research Summary", styles["Heading2"])]
+    if summary.get("summary"):
+        lines.append(Paragraph(_safe(summary["summary"]), styles["Normal"]))
+    details = [
+        ["RAG Evidence Chunks", _safe(summary.get("retrieved_evidence_chunks", "")), "LLM Used", "Yes" if summary.get("llm_used") else "No"],
+        ["Source Strategy", _safe(", ".join(summary.get("source_strategy", [])[:8])), "Query", _safe(summary.get("query_understood_as", ""))],
+    ]
+    table = Table([[Paragraph(str(cell), styles["FieldValue"]) for cell in row] for row in details], colWidths=[1.35 * inch, 1.55 * inch, 1.35 * inch, 1.55 * inch])
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f4f7f9")),
+                ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#d6dde6")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("PADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    lines.append(Spacer(1, 0.08 * inch))
+    lines.append(table)
+    if summary.get("limitations"):
+        lines.append(Spacer(1, 0.06 * inch))
+        lines.append(Paragraph(f"Limitations: {_safe('; '.join(summary['limitations'][:4]))}", styles["Small"]))
+    return lines
 
 
 def _business_section(index: int, business: dict[str, Any], styles) -> list[Any]:

@@ -115,6 +115,10 @@ GEOAPIFY_API_KEY
 GEOAPIFY_FALLBACK_API_KEY
 SERPER_API_KEY
 TAVILY_API_KEY
+LLM_API_KEY
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4o-mini
+LLM_SUMMARY_ENABLED=true
 RESEARCH_ENRICHMENT_TIMEOUT_SECONDS=8
 RESEARCH_SEARCH_TIMEOUT_SECONDS=12
 RESEARCH_CONCURRENCY=8
@@ -129,6 +133,8 @@ GOOGLE_MAPS_API_KEY
 ```
 
 On Vercel, the SQLite HTTP/search cache automatically uses `/tmp/research_agent.sqlite3`, because serverless deployments should not write to the read-only project bundle. For persistent storage, set `MONGO_URI`.
+
+The LLM variables are optional. When no LLM key is configured, the agent still creates a deterministic RAG-style summary from retrieved evidence chunks. When an OpenAI-compatible key is configured, the LLM receives only verified evidence snippets and is instructed not to invent missing business fields.
 
 ## Notes On Public Data
 

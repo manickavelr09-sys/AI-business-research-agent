@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timezone
 from typing import AsyncIterator
 
+from research_agent.agentic_rag import build_research_summary
 from research_agent.config import Settings, settings as default_settings
 from research_agent.business_enrichment import BusinessEnricher
 from research_agent.dedupe import dedupe_records
@@ -54,26 +55,46 @@ class ResearchAgent:
         search_queries = build_discovery_queries(parsed)
         result_urls: dict[str, object] = {}
         searched_sources = set()
+        source_errors: list[str] = []
         semaphore = asyncio.Semaphore(self.settings.concurrency)
         records: list[BusinessRecord] = []
-        geoapify_records = await self.geoapify.search(parsed, limit=min(limit or 50, 80))
+        try:
+            geoapify_records = await self.geoapify.search(parsed, limit=min(limit or 50, 80))
+        except Exception as exc:
+            geoapify_records = []
+            source_errors.append(f"geoapify:{type(exc).__name__}")
+            yield {"event": "source_error", "source": "geoapify", "error": type(exc).__name__}
         if geoapify_records:
             searched_sources.add("geoapify")
             yield {"event": "geoapify_complete", "candidate_records": len(geoapify_records)}
 
-        place_records = await self.places.search(parsed, limit=min(limit or 20, 40))
+        try:
+            place_records = await self.places.search(parsed, limit=min(limit or 20, 40))
+        except Exception as exc:
+            place_records = []
+            source_errors.append(f"google_places:{type(exc).__name__}")
+            yield {"event": "source_error", "source": "google_places", "error": type(exc).__name__}
         if place_records:
             searched_sources.add("google_places")
             yield {"event": "places_complete", "candidate_records": len(place_records)}
 
-        serper_place_records = await self.serper_places.search(parsed, limit=min(limit or 40, 80))
+        try:
+            serper_place_records = await self.serper_places.search(parsed, limit=min(limit or 40, 80))
+        except Exception as exc:
+            serper_place_records = []
+            source_errors.append(f"serper_places:{type(exc).__name__}")
+            yield {"event": "source_error", "source": "serper_places", "error": type(exc).__name__}
         if serper_place_records:
             searched_sources.add("serper_places")
             yield {"event": "serper_places_complete", "candidate_records": len(serper_place_records)}
 
-        for map_record in [*geoapify_records, *place_records, *serper_place_records]:
+        for map_record, source_kind in [
+            *((record, "geoapify") for record in geoapify_records),
+            *((record, "google_places") for record in place_records),
+            *((record, "serper_places") for record in serper_place_records),
+        ]:
             verified_map_record = verify_record(map_record)
-            if should_stream_record(verified_map_record, parsed, "serper_places"):
+            if should_stream_record(verified_map_record, parsed, source_kind):
                 records.append(verified_map_record)
                 yield {"event": "business_discovered", "business": verified_map_record.to_dict()}
 
@@ -92,9 +113,13 @@ class ResearchAgent:
                     yield {"event": "business_enriched", "business": enriched.to_dict()}
 
         async def run_search(provider: SearchProvider, search_query: str, page: int) -> None:
-            async with semaphore:
-                results = await provider.search(search_query, page)
-            searched_sources.add(provider.name)
+            try:
+                async with semaphore:
+                    results = await provider.search(search_query, page)
+                searched_sources.add(provider.name)
+            except Exception as exc:
+                source_errors.append(f"{provider.name}:{type(exc).__name__}")
+                return
             for result in results:
                 if filter_result(result, parsed):
                     result_urls.setdefault(result.url, result)
@@ -117,7 +142,10 @@ class ResearchAgent:
             if pending:
                 yield {"event": "search_timeout", "cancelled_tasks": len(pending)}
             for task in done:
-                task.result()
+                try:
+                    task.result()
+                except Exception as exc:
+                    source_errors.append(f"search_task:{type(exc).__name__}")
         search_results = sorted(
             result_urls.values(),
             key=lambda item: result_relevance_score(item, parsed),
@@ -133,9 +161,12 @@ class ResearchAgent:
 
         async def fetch_and_extract(result) -> BusinessRecord:
             seed = record_from_search_result(result)
-            fetched = await self.http.fetch(result.url)
-            if fetched and fetched.status_code < 400 and fetched.body:
-                return extract_business_from_html(fetched.url, fetched.body, seed)
+            try:
+                fetched = await self.http.fetch(result.url)
+                if fetched and fetched.status_code < 400 and fetched.body:
+                    return extract_business_from_html(fetched.url, fetched.body, seed)
+            except Exception as exc:
+                source_errors.append(f"extract:{type(exc).__name__}")
             return seed
 
         async def worker(result) -> BusinessRecord:
@@ -143,7 +174,11 @@ class ResearchAgent:
                 return await fetch_and_extract(result)
 
         for future in asyncio.as_completed([worker(result) for result in search_results]):
-            record = verify_record(await future)
+            try:
+                record = verify_record(await future)
+            except Exception as exc:
+                source_errors.append(f"worker:{type(exc).__name__}")
+                continue
             if should_stream_record(record, parsed, "web"):
                 records.append(record)
                 yield {"event": "business_discovered", "business": record.to_dict()}
@@ -152,6 +187,14 @@ class ResearchAgent:
         verified = [verify_record(record) for record in deduped]
         verified.sort(key=lambda record: record.reliability_score, reverse=True)
         completed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        quality = data_quality_summary(verified)
+        research_summary = await build_research_summary(
+            parsed.display(),
+            verified,
+            quality,
+            self.settings,
+            source_errors,
+        )
         report = ResearchReport(
             query=parsed.display(),
             started_at=started_at,
@@ -161,8 +204,9 @@ class ResearchAgent:
             businesses_verified=verified_count(verified),
             duplicate_records_removed=removed,
             sources_searched=len(searched_sources) + len(search_queries),
-            data_quality=data_quality_summary(verified),
+            data_quality=quality,
             results=verified,
+            research_summary=research_summary,
         )
         report_payload = report.to_dict()
         mongo_result = await self.mongo.save_report(report_payload)

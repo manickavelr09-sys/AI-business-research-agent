@@ -69,6 +69,18 @@ CATEGORY_EXPANSIONS = {
     "repair services": ["repair service", "service centre", "service center", "appliance repair"],
 }
 
+CATEGORY_CORRECTIONS = {
+    "cardialagist": "cardiologists",
+    "cardiologyst": "cardiologists",
+    "cardiologit": "cardiologists",
+    "dentel clinic": "dental clinic",
+    "electritian": "electricians",
+    "electricion": "electricians",
+    "plumers": "plumbers",
+    "restaurtents": "restaurants",
+    "resturants": "restaurants",
+}
+
 
 def normalize_location(value: str) -> str:
     normalized = normalize_text(value)
@@ -78,6 +90,11 @@ def normalize_location(value: str) -> str:
     return " ".join((value or "").strip().split())
 
 
+def normalize_category(value: str) -> str:
+    normalized = normalize_text(value)
+    return CATEGORY_CORRECTIONS.get(normalized, " ".join((value or "").strip().split()))
+
+
 def location_aliases(value: str) -> list[str]:
     normalized = normalize_location(value)
     aliases = LOCATION_ALIASES.get(normalized, [normalized])
@@ -85,6 +102,7 @@ def location_aliases(value: str) -> list[str]:
 
 
 def category_expansions(category: str) -> list[str]:
+    category = normalize_category(category)
     normalized = normalize_text(category)
     expansions = CATEGORY_EXPANSIONS.get(normalized, [category])
     return list(dict.fromkeys([category, *expansions]))

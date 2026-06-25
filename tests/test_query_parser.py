@@ -17,3 +17,9 @@ def test_infer_industry() -> None:
     assert infer_industry("Dentists") == "healthcare"
     assert infer_industry("Family lawyers") == "legal"
     assert infer_industry("Roofing contractors") == "trades"
+
+
+def test_parse_corrects_common_category_typos() -> None:
+    query = parse_user_query("cardialagist in thanjavur")
+    assert query.category == "cardiologists"
+    assert query.location == "thanjavur"

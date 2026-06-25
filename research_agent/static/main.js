@@ -74,11 +74,35 @@ function renderBusiness(business) {
 function renderFinalBusinesses(businesses) {
   results.innerHTML = "";
   renderedCards.clear();
+  const reportSummary = lastReport?.research_summary;
+  if (reportSummary) {
+    results.append(renderResearchSummary(reportSummary));
+  }
   if (!businesses.length) {
-    showMessage("No businesses found for this search.");
+    if (!reportSummary) showMessage("No businesses found for this search.");
     return;
   }
   businesses.forEach((business) => renderBusiness(business));
+}
+
+function renderResearchSummary(summary) {
+  const card = document.createElement("article");
+  card.className = "result-card summary-card";
+  const steps = (summary.agent_steps || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  const limitations = (summary.limitations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  const strategy = Array.isArray(summary.source_strategy) ? summary.source_strategy.join(", ") : "";
+  card.innerHTML = `
+    <h2>Research Summary</h2>
+    <p>${escapeHtml(summary.summary || "")}</p>
+    <div class="fields">
+      <div class="field"><div class="label">RAG Evidence Chunks</div><div class="value">${summary.retrieved_evidence_chunks || 0}</div></div>
+      <div class="field"><div class="label">LLM Used</div><div class="value">${summary.llm_used ? "Yes" : "No"}</div></div>
+      <div class="field"><div class="label">Source Strategy</div><div class="value">${escapeHtml(strategy || "Public web evidence")}</div></div>
+      <div class="field"><div class="label">Agent Steps</div><div class="value"><ul>${steps}</ul></div></div>
+      <div class="field"><div class="label">Limitations</div><div class="value"><ul>${limitations || "<li>None flagged</li>"}</ul></div></div>
+    </div>
+  `;
+  return card;
 }
 
 function showMessage(message) {
@@ -196,6 +220,9 @@ form.addEventListener("submit", async (event) => {
       logEvent({ event: "stream_error" });
     }
   } finally {
+    if (!lastReport && results.textContent && !results.textContent.includes("Search stopped")) {
+      logEvent({ event: "completed_event_missing" });
+    }
     if (activeController === controller) resetRunButton();
   }
 });

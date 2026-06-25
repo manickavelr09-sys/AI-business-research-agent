@@ -178,6 +178,15 @@ button:disabled {
   font-size: 18px;
 }
 
+.summary-card p {
+  margin: 0 0 12px;
+}
+
+.summary-card ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));

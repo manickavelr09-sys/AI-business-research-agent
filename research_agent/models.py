@@ -168,6 +168,7 @@ class ResearchReport:
     sources_searched: int
     data_quality: dict[str, str]
     results: list[BusinessRecord]
+    research_summary: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -182,5 +183,6 @@ class ResearchReport:
                 "completed_at": self.completed_at,
             },
             "data_quality_summary": self.data_quality,
+            "research_summary": self.research_summary,
             "business_results": [business.to_dict() for business in self.results],
         }

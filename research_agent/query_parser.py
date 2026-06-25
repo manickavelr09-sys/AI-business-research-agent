@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 from research_agent.models import SearchQuery
-from research_agent.locality import normalize_location
+from research_agent.locality import normalize_category, normalize_location
 
 
 LOCATION_SPLIT_RE = re.compile(r"\s+(?:in|near|around|within)\s+", re.IGNORECASE)
@@ -18,7 +18,7 @@ def parse_user_query(raw_query: str) -> SearchQuery:
         category, location = parts[0].strip(" ,"), normalize_location(parts[1].strip(" ,"))
     else:
         category, location = cleaned, ""
-    category = category or raw_query
+    category = normalize_category(category or raw_query)
     return SearchQuery(raw=raw_query, category=category, location=location)
 
 

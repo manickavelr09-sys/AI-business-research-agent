@@ -42,6 +42,10 @@ class Settings:
     geoapify_fallback_api_key: str = os.getenv("GEOAPIFY_FALLBACK_API_KEY", "")
     serper_api_key: str = os.getenv("SERPER_API_KEY", "")
     tavily_api_key: str = os.getenv("TAVILY_API_KEY", "")
+    llm_api_key: str = os.getenv("LLM_API_KEY", os.getenv("OPENAI_API_KEY", ""))
+    llm_base_url: str = os.getenv("LLM_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"))
+    llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    llm_summary_enabled: bool = _bool_env("LLM_SUMMARY_ENABLED", True)
 
 
 settings = Settings()
