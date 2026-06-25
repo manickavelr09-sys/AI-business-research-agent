@@ -10,7 +10,7 @@ from research_agent.config import Settings, settings as default_settings
 from research_agent.business_enrichment import BusinessEnricher
 from research_agent.dedupe import dedupe_records
 from research_agent.discovery import build_discovery_queries, filter_result, result_relevance_score
-from research_agent.extraction import extract_business_from_html, record_from_search_result
+from research_agent.extraction import extract_business_from_html, extract_business_leads_from_html, record_from_search_result
 from research_agent.geoapify_provider import GeoapifyProvider
 from research_agent.http_client import HttpClient
 from research_agent.models import BusinessRecord, ResearchReport
@@ -159,23 +159,34 @@ class ResearchAgent:
             "search_queries": len(search_queries),
         }
 
-        async def fetch_and_extract(result) -> BusinessRecord:
+        async def fetch_and_extract(result) -> tuple[BusinessRecord, list[BusinessRecord]]:
             seed = record_from_search_result(result)
             try:
                 fetched = await self.http.fetch(result.url)
                 if fetched and fetched.status_code < 400 and fetched.body:
-                    return extract_business_from_html(fetched.url, fetched.body, seed)
+                    record = extract_business_from_html(fetched.url, fetched.body, seed)
+                    leads = extract_business_leads_from_html(
+                        fetched.url,
+                        fetched.body,
+                        parsed.category,
+                        parsed.location,
+                        limit=8,
+                    )
+                    return record, leads
             except Exception as exc:
                 source_errors.append(f"extract:{type(exc).__name__}")
-            return seed
+            return seed, []
 
-        async def worker(result) -> BusinessRecord:
+        async def worker(result) -> tuple[BusinessRecord, list[BusinessRecord]]:
             async with semaphore:
                 return await fetch_and_extract(result)
 
+        article_leads: list[BusinessRecord] = []
         for future in asyncio.as_completed([worker(result) for result in search_results]):
             try:
-                record = verify_record(await future)
+                raw_record, leads = await future
+                article_leads.extend(leads)
+                record = verify_record(raw_record)
             except Exception as exc:
                 source_errors.append(f"worker:{type(exc).__name__}")
                 continue
@@ -183,8 +194,27 @@ class ResearchAgent:
                 records.append(record)
                 yield {"event": "business_discovered", "business": record.to_dict()}
 
+        if article_leads:
+            yield {"event": "lead_mining_complete", "candidate_leads": len(article_leads)}
+            lead_deduped, _ = dedupe_records(article_leads)
+            enriched_leads = await self.enricher.enrich_many(
+                lead_deduped[: min(len(lead_deduped), limit or 20)],
+                parsed,
+                per_business_limit=2,
+                timeout_seconds=self.settings.enrichment_timeout_seconds,
+            )
+            for lead in enriched_leads:
+                verified_lead = verify_record(lead)
+                if should_stream_record(verified_lead, parsed, "web"):
+                    records.append(verified_lead)
+                    yield {"event": "business_enriched", "business": verified_lead.to_dict()}
+
         deduped, removed = dedupe_records(records)
-        verified = [verify_record(record) for record in deduped]
+        verified = [
+            record
+            for record in (verify_record(record) for record in deduped)
+            if should_stream_record(record, parsed, "web")
+        ]
         verified.sort(key=lambda record: record.reliability_score, reverse=True)
         completed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         quality = data_quality_summary(verified)

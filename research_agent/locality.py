@@ -10,11 +10,14 @@ LOCATION_CORRECTIONS = {
     "tanjavur": "thanjavur",
     "tanjore": "thanjavur",
     "trichy": "tiruchirappalli",
+    "ooty": "ooty",
+    "udhagamandalam": "ooty",
 }
 
 LOCATION_ALIASES = {
     "thanjavur": ["thanjavur", "tanjore", "thanjavur tamil nadu", "tamil nadu"],
     "tiruchirappalli": ["tiruchirappalli", "trichy", "tiruchi", "tamil nadu"],
+    "ooty": ["ooty", "udhagamandalam", "nilgiris", "the nilgiris", "ooty tamil nadu"],
 }
 
 OFF_LOCATION_HINTS = {

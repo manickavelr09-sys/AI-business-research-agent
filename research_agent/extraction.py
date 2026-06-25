@@ -36,13 +36,33 @@ SERVICE_WORDS = (
     "consultation",
 )
 
+LEAD_REJECT_PHRASES = (
+    "what are",
+    "best places",
+    "must try",
+    "must-try",
+    "food guide",
+    "restaurants in",
+    "places to eat",
+    "business directory",
+    "list of",
+    "map of",
+    "exploring",
+    "guide",
+    "read more",
+    "view all",
+    "near me",
+    "reviews",
+    "comments",
+)
+
 
 def record_from_search_result(result: SearchResult) -> BusinessRecord:
     record = BusinessRecord()
     source_type = classify_source(result.url)
     reliability = reliability_for("search_result")
     name = _clean_title(result.title)
-    if name:
+    if name and not _looks_like_non_business_title(name, result.url):
         record.add_evidence(SourceEvidence("business_name", name, result.url, "search_result", reliability))
     if result.url:
         record.add_evidence(SourceEvidence("website", result.url, result.url, source_type, reliability_for(source_type)))
@@ -63,7 +83,7 @@ def extract_business_from_html(url: str, html_text: str, seed: BusinessRecord | 
         _apply_structured_data(record, item, url, source_type, reliability)
 
     meta_title = _meta(soup, "og:title") or title
-    if meta_title:
+    if meta_title and not _looks_like_non_business_title(meta_title, url):
         record.add_evidence(SourceEvidence("business_name", _clean_title(meta_title), url, source_type, reliability))
     description = _meta(soup, "description") or _meta(soup, "og:description")
     if description:
@@ -85,6 +105,35 @@ def extract_business_from_html(url: str, html_text: str, seed: BusinessRecord | 
         record.add_evidence(SourceEvidence("services", services, url, source_type, reliability))
         record.add_evidence(SourceEvidence("specialties", services, url, source_type, reliability))
     return record
+
+
+def extract_business_leads_from_html(url: str, html_text: str, category: str, location: str, limit: int = 12) -> list[BusinessRecord]:
+    soup = BeautifulSoup(html_text, "lxml")
+    source_type = classify_source(url)
+    leads: list[str] = []
+    for item in _extract_json_ld(soup):
+        name = item.get("name")
+        if isinstance(name, str) and _looks_like_lead_name(name, category, location, url):
+            leads.append(name)
+    for selector in ["h2", "h3", "h4", "strong", "li", "a"]:
+        for node in soup.find_all(selector):
+            text = node.get_text(" ", strip=True)
+            for candidate in _split_lead_text(text):
+                if _looks_like_lead_name(candidate, category, location, url):
+                    leads.append(candidate)
+            if len(leads) >= limit * 3:
+                break
+    records: list[BusinessRecord] = []
+    for name in list(dict.fromkeys(_clean_lead_name(item) for item in leads)):
+        if not name:
+            continue
+        record = BusinessRecord()
+        record.add_evidence(SourceEvidence("business_name", name, url, "article_lead", 0.36))
+        record.add_evidence(SourceEvidence("services", [category], url, "article_lead", 0.36))
+        records.append(record)
+        if len(records) >= limit:
+            break
+    return records
 
 
 def _extract_json_ld(soup: BeautifulSoup) -> list[dict]:
@@ -233,6 +282,64 @@ def _meta(soup: BeautifulSoup, name: str) -> str:
 def _clean_title(title: str) -> str:
     title = re.sub(r"\s+[-|]\s+.*$", "", title or "").strip()
     return title[:180]
+
+
+def _split_lead_text(text: str) -> list[str]:
+    text = re.sub(r"\s+", " ", text or "").strip()
+    if not text:
+        return []
+    parts = re.split(r"\s*(?:\||•|·|:|–|—)\s*", text)
+    return [part.strip(" -:.,") for part in parts if part.strip(" -:.,")]
+
+
+def _clean_lead_name(value: str) -> str:
+    value = re.sub(r"^\d+\s*[\).:-]\s*", "", value or "").strip()
+    value = re.split(r"\s+(?:is|are|was|were)\s+", value, maxsplit=1)[0].strip()
+    value = re.sub(r"\s+[-|]\s+.*$", "", value).strip()
+    value = re.sub(r"\s+", " ", value)
+    if len(value) > 80:
+        return ""
+    return value
+
+
+def _looks_like_lead_name(value: str, category: str, location: str, url: str) -> bool:
+    cleaned = _clean_lead_name(value)
+    normalized = re.sub(r"[^a-z0-9]+", " ", cleaned.lower()).strip()
+    if len(cleaned) < 3 or not re.search(r"[A-Za-z]", cleaned):
+        return False
+    if normalized in {"dining", "tripadvisor", "ooty restaurants", "ooty india"}:
+        return False
+    if any(phrase in normalized for phrase in LEAD_REJECT_PHRASES):
+        return False
+    if normalized in {category.lower(), location.lower(), "restaurant", "restaurants", "dining"}:
+        return False
+    if len(normalized.split()) > 8:
+        return False
+    # Lead names usually have a brand token; all-lowercase sentence fragments are weak.
+    return any(token[:1].isupper() for token in cleaned.split() if token)
+
+
+def _looks_like_non_business_title(title: str, url: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", " ", (title or "").lower()).strip()
+    host = urlparse(url).netloc.lower()
+    if any(marker in host for marker in ("quora.", "reddit.", "youtube.", "youtu.be", "wanderlog.", "treebo.")):
+        return True
+    if normalized in {"dining", "tripadvisor", "ooty restaurants", "ooty india"}:
+        return True
+    return any(
+        phrase in normalized
+        for phrase in (
+            "what are",
+            "must try",
+            "places to eat",
+            "food guide",
+            "business directory",
+            "list of companies",
+            "best attractions",
+            "popular restaurants",
+            "restaurants near",
+        )
+    )
 
 
 def _clean_phone_match(value: str) -> str:

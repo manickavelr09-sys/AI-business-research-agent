@@ -18,6 +18,18 @@ DIRECTORY_HOSTS = (
     "practo.",
 )
 
+CONTENT_HOSTS = (
+    "quora.",
+    "reddit.",
+    "youtube.",
+    "youtu.be",
+    "medium.",
+    "wanderlog.",
+    "travelandleisure",
+    "socialmaharaj.",
+    "treebo.",
+)
+
 GENERIC_PHRASES = (
     "best ",
     "top ",
@@ -25,6 +37,46 @@ GENERIC_PHRASES = (
     "list of ",
     "directory",
     "find ",
+)
+
+GENERIC_BUSINESS_NAMES = {
+    "dining",
+    "tripadvisor",
+    "ooty restaurants",
+    "ooty india",
+    "exploring ooty",
+    "access denied",
+}
+
+GENERIC_TITLE_PHRASES = (
+    "what are ",
+    "what is ",
+    "where ",
+    "how ",
+    "guide to ",
+    "your guide",
+    "must try",
+    "must-try",
+    "places to eat",
+    "food guide",
+    "famous food",
+    "local delights",
+    "best places",
+    "best attractions",
+    "popular restaurants",
+    "restaurants near",
+    "list of companies",
+    "business directory",
+    "small business directory",
+    "map of ",
+    "watch ",
+    "experience in ",
+    "is a ",
+    "if you",
+    "travelling to",
+    "traveling to",
+    "well regarded",
+    "well-regarded",
 )
 
 
@@ -79,6 +131,8 @@ def _looks_like_generic_listing(record: BusinessRecord, query: SearchQuery) -> b
         generic_names = {
             f"{variant} in {location}" for variant in category_variants
         } | {
+            f"{variant} {location}" for variant in category_variants
+        } | {
             f"best {variant} in {location}" for variant in category_variants
         } | {
             f"top {variant} in {location}" for variant in category_variants
@@ -91,7 +145,17 @@ def _looks_like_generic_listing(record: BusinessRecord, query: SearchQuery) -> b
             return True
     if any(phrase in name for phrase in GENERIC_PHRASES) and any(variant in name for variant in category_variants):
         return True
+    if name in GENERIC_BUSINESS_NAMES:
+        return True
+    if any(phrase in name for phrase in GENERIC_TITLE_PHRASES):
+        return True
+    if name.endswith("?"):
+        return True
+    if _host_is_content_page(record.website):
+        return True
     if _host_is_directory(record.website) and any(variant in name for variant in category_variants) and location in name:
+        return True
+    if _host_is_directory(record.website) and _looks_like_directory_title(name):
         return True
     has_business_fields = bool(record.address or record.phone or record.email or record.working_hours)
     if has_business_fields:
@@ -131,3 +195,23 @@ def _starts_with_listing_title(name: str, generic: str) -> bool:
 def _host_is_directory(url: str) -> bool:
     host = urlparse(url).netloc.lower()
     return any(marker in host for marker in DIRECTORY_HOSTS)
+
+
+def _host_is_content_page(url: str) -> bool:
+    host = urlparse(url).netloc.lower()
+    return any(marker in host for marker in CONTENT_HOSTS)
+
+
+def _looks_like_directory_title(name: str) -> bool:
+    return any(
+        phrase in name
+        for phrase in (
+            "restaurants",
+            "companies",
+            "directory",
+            "near me",
+            "order online",
+            "check prices",
+            "reviews",
+        )
+    )
