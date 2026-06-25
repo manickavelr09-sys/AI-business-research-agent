@@ -1,40 +1,46 @@
-
 from fastapi import APIRouter
 from pydantic import BaseModel
 from . import pipeline
-
-router = APIRouter(
-    prefix="/rag",
-    tags=["rag"]
-)
-
-class QuestionRequest(BaseModel):
-    run_id: str | int
-    question: str
-
-@router.post("/ask")
-async def ask(request: QuestionRequest):
-
-    result = await pipeline.answer_question(
-        request.run_id,
-        request.question
-    )
-
-    return result
-
-'''
-#Test the rag connection
-from fastapi import APIRouter, Request
+from .lru_cache import get_all_sessions, get_current_run_id, get_run_id_for_query
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
+class QuestionRequest(BaseModel):
+    question: str
+    run_id: str | None = None
+    query: str | None = None
+
 @router.post("/ask")
-async def ask(request: Request):
+async def ask(request: QuestionRequest):
+    run_id = request.run_id
 
-    body = await request.json()
+    # Auto-detect from query if provided
+    if not run_id and request.query:
+        run_id = get_run_id_for_query(request.query)
 
-    print("\nBODY RECEIVED:")
-    print(body)
+    # Fall back to most recent session
+    if not run_id:
+        run_id = get_current_run_id()
 
-    return {"ok": True}
-'''
+    if not run_id:
+        return {
+            "answer": "No active session. Please search for businesses first.",
+            "sources": [],
+            "run_id": None
+        }
+
+    return await pipeline.answer_question(run_id, request.question)
+
+@router.get("/sessions")
+async def get_sessions():
+    sessions = get_all_sessions()
+    return {
+        "active_sessions": len(sessions),
+        "max_sessions": 3,
+        "sessions": sessions
+    }
+
+@router.get("/current")
+async def current_session():
+    run_id = get_current_run_id()
+    return {"current_run_id": run_id}
