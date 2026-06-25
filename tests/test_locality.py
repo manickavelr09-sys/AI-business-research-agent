@@ -7,10 +7,16 @@ def test_location_typo_is_corrected() -> None:
     assert normalize_location("thamjavur") == "thanjavur"
     assert "tanjore" in location_aliases("thanjavur")
     assert "udhagamandalam" in location_aliases("ooty")
+    assert normalize_location("karaikkudi") == "karaikudi"
+    assert "sivaganga" in location_aliases("karaikudi")
 
 
 def test_ooty_location_alias_matches_official_town_name() -> None:
     assert has_location_signal("Restaurant in Udhagamandalam, The Nilgiris", "ooty")
+
+
+def test_karaikudi_location_alias_matches_district_name() -> None:
+    assert has_location_signal("Electrical works in Sivaganga district, Tamil Nadu", "karaikudi")
 
 
 def test_off_location_result_is_filtered() -> None:

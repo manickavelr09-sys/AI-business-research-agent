@@ -28,6 +28,10 @@ CONTENT_HOSTS = (
     "travelandleisure",
     "socialmaharaj.",
     "treebo.",
+    "blog.",
+    "medium.",
+    "youtube.",
+    "youtu.be",
 )
 
 GENERIC_PHRASES = (
@@ -46,6 +50,10 @@ GENERIC_BUSINESS_NAMES = {
     "ooty india",
     "exploring ooty",
     "access denied",
+    "sulekha.com",
+    "sulekha com",
+    "service experts",
+    "electrical electronics",
 }
 
 GENERIC_TITLE_PHRASES = (
@@ -73,6 +81,23 @@ GENERIC_TITLE_PHRASES = (
     "experience in ",
     "is a ",
     "if you",
+    "how to",
+    "where to",
+    "things to",
+    "for your ",
+    "repair needs",
+    "dealers in ",
+    "suppliers in ",
+    "manufacturers in ",
+    "companies in ",
+    "buy latest",
+    "wires switches",
+    "led lights",
+    "check prices",
+    "order online",
+    "book online",
+    "near you",
+    "phone numbers in",
     "travelling to",
     "traveling to",
     "well regarded",
@@ -121,10 +146,17 @@ def _record_has_location(record: BusinessRecord, query: SearchQuery) -> bool:
 
 
 def _looks_like_generic_listing(record: BusinessRecord, query: SearchQuery) -> bool:
+    raw_name = (record.business_name or "").strip()
     name = normalize_text(record.business_name)
     category = normalize_text(query.category)
     location = normalize_text(query.location)
     if not name:
+        return True
+    if raw_name.startswith("#"):
+        return True
+    if "@" in raw_name:
+        return True
+    if _looks_like_sentence_or_seo_title(raw_name):
         return True
     category_variants = _category_variants(category)
     if category and location:
@@ -182,9 +214,19 @@ def _category_variants(category: str) -> set[str]:
     if "plumber" in variants:
         variants.update({"plumbing contractor", "plumbing contractors"})
     if "electrician" in variants:
-        variants.update({"electrical contractor", "electrical contractors"})
+        variants.update({"electrical contractor", "electrical contractors", "electricals", "electrical works", "electrical shop", "wiring contractor", "wiring service"})
     if "roofer" in variants or "roofing contractor" in variants:
         variants.update({"roofer", "roofers", "roofing contractor", "roofing contractors"})
+    if "restaurant" in variants:
+        variants.update({"restaurants", "dining", "eatery", "food delivery"})
+    if "shop" in variants or "shopping" in variants or "store" in variants:
+        variants.update({"shop", "shops", "store", "stores", "retail store", "showroom", "shopping"})
+    if "salon" in variants:
+        variants.update({"salons", "beauty salon", "beauty parlour", "hair salon", "spa"})
+    if "gym" in variants:
+        variants.update({"gyms", "fitness centre", "fitness center", "health club"})
+    if "school" in variants:
+        variants.update({"schools", "training institute", "academy"})
     return {variant for variant in variants if variant}
 
 
@@ -215,3 +257,19 @@ def _looks_like_directory_title(name: str) -> bool:
             "reviews",
         )
     )
+
+
+def _looks_like_sentence_or_seo_title(raw_name: str) -> bool:
+    normalized = normalize_text(raw_name)
+    words = normalized.split()
+    if len(words) > 10:
+        return True
+    if "..." in raw_name or "…" in raw_name:
+        return True
+    if raw_name.count(",") >= 3:
+        return True
+    if raw_name.count(" - ") >= 2:
+        return True
+    if normalized.startswith(("if ", "when ", "where ", "how ", "why ", "what ")):
+        return True
+    return False

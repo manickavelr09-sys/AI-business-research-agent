@@ -9,6 +9,8 @@ def test_universal_category_expansions_cover_common_businesses() -> None:
     assert "coffee shop" in category_expansions("cafes")
     assert "showroom" in category_expansions("shopping")
     assert "beauty parlour" in category_expansions("salons")
+    assert "electrical works" in category_expansions("electricians")
+    assert "wiring service" in category_expansions("electricians")
 
 
 def test_industry_router_handles_non_medical_businesses() -> None:

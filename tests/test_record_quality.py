@@ -60,6 +60,51 @@ def test_category_location_title_without_in_is_rejected() -> None:
     assert not should_stream_record(record, query, "web")
 
 
+def test_generic_directory_brand_is_not_business_record() -> None:
+    query = SearchQuery(raw="electricians in karaikudi", category="electricians", location="karaikudi")
+    record = BusinessRecord(
+        business_name="Sulekha.com",
+        website="https://www.sulekha.com/electricians/karaikudi",
+    )
+    assert not should_stream_record(record, query, "web")
+
+
+def test_hashtag_caption_is_not_business_record() -> None:
+    query = SearchQuery(raw="electricians in karaikudi", category="electricians", location="karaikudi")
+    record = BusinessRecord(
+        business_name="#sivagangai_seemai⚔️ #electrician #karaikudi #electricianlife ...",
+        website="https://www.instagram.com/reel/example",
+    )
+    assert not should_stream_record(record, query, "web")
+
+
+def test_generic_electrical_repair_title_is_not_business_record() -> None:
+    query = SearchQuery(raw="electricians in karaikudi", category="electricians", location="karaikudi")
+    record = BusinessRecord(
+        business_name="Electricians for Your Electrical Repair Needs in Karaikudi",
+        website="https://example.com/electricians-karaikudi",
+    )
+    assert not should_stream_record(record, query, "web")
+
+
+def test_electrical_dealers_directory_title_is_not_business_record() -> None:
+    query = SearchQuery(raw="electricians in karaikudi", category="electricians", location="karaikudi")
+    record = BusinessRecord(
+        business_name="Electrical Dealers in Karaikudi – Wires, Switches, LED Lights",
+        website="https://example.com/electrical-dealers-karaikudi",
+    )
+    assert not should_stream_record(record, query, "web")
+
+
+def test_long_product_store_seo_title_is_not_business_record() -> None:
+    query = SearchQuery(raw="electricians in karaikudi", category="electricians", location="karaikudi")
+    record = BusinessRecord(
+        business_name="Sathya Agencies, Karaikudi - Electronics and Home Appliances Store - Buy Latest Mobiles, AC, LED TV, Washing Machine etc.",
+        website="https://example.com/sathya-agencies-karaikudi",
+    )
+    assert not should_stream_record(record, query, "web")
+
+
 def test_named_alias_business_is_kept() -> None:
     query = SearchQuery(raw="dentists in thanjavur", category="dentists", location="thanjavur")
     record = BusinessRecord(

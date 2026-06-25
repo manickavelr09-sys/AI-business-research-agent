@@ -12,12 +12,14 @@ LOCATION_CORRECTIONS = {
     "trichy": "tiruchirappalli",
     "ooty": "ooty",
     "udhagamandalam": "ooty",
+    "karaikkudi": "karaikudi",
 }
 
 LOCATION_ALIASES = {
     "thanjavur": ["thanjavur", "tanjore", "thanjavur tamil nadu", "tamil nadu"],
     "tiruchirappalli": ["tiruchirappalli", "trichy", "tiruchi", "tamil nadu"],
     "ooty": ["ooty", "udhagamandalam", "nilgiris", "the nilgiris", "ooty tamil nadu"],
+    "karaikudi": ["karaikudi", "karaikkudi", "karaikudi tamil nadu", "sivaganga", "sivagangai"],
 }
 
 OFF_LOCATION_HINTS = {
@@ -55,8 +57,8 @@ CATEGORY_EXPANSIONS = {
     "doctor": ["doctor", "physician", "medical clinic", "hospital", "clinic"],
     "dentists": ["dentist", "dental clinic", "orthodontist"],
     "dentist": ["dentist", "dental clinic", "orthodontist"],
-    "electricians": ["electrician", "electrical contractor", "electrical service"],
-    "electrician": ["electrician", "electrical contractor", "electrical service"],
+    "electricians": ["electrician", "electrical contractor", "electrical service", "electricals", "electrical works", "electrical shop", "wiring contractor", "wiring service", "electric repair"],
+    "electrician": ["electrician", "electrical contractor", "electrical service", "electricals", "electrical works", "electrical shop", "wiring contractor", "wiring service", "electric repair"],
     "plumbers": ["plumber", "plumbing service", "plumbing contractor", "pipe repair"],
     "plumber": ["plumber", "plumbing service", "plumbing contractor", "pipe repair"],
     "roofers": ["roofer", "roofing contractor", "roofing service"],
