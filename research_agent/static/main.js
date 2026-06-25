@@ -24,7 +24,7 @@ const quality = {
   hours: document.querySelector("#quality-hours"),
   services: document.querySelector("#quality-services"),
 };
-
+let currentRunId = null;
 function logEvent(event) {
   const line = document.createElement("div");
   line.textContent = `${new Date().toLocaleTimeString()} ${event.event}`;
@@ -275,6 +275,9 @@ form.addEventListener("submit", async (event) => {
           renderBusiness(payload.business);
         }
         if (payload.event === "completed") {
+          currentRunId = payload.run_id;
+
+          console.log("RUN ID:", currentRunId);
           lastReport = payload.report;
           pdfButton.disabled = false;
           pdfButtonSecondary.disabled = false;
@@ -342,3 +345,60 @@ async function downloadReport() {
 pdfButton.addEventListener("click", downloadReport);
 pdfButtonSecondary.addEventListener("click", downloadReport);
 loadReadiness();
+document
+  .getElementById("ask-ai-btn")
+  ?.addEventListener("click", askAI);
+//---------------------------
+//Rag setup
+//---------------------------
+
+async function askAI() {
+
+    const question =
+        document.getElementById(
+            "rag-question"
+        ).value;
+
+    if (!question) {
+        alert("Enter a question");
+        return;
+    }
+
+    const answerDiv =
+        document.getElementById(
+            "rag-answer"
+        );
+
+    answerDiv.innerHTML =
+        "Thinking...";
+
+    try {
+
+        const response =
+            await fetch(
+                "/rag/ask",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        run_id: String(currentRunId),
+                        question: question
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        answerDiv.innerHTML =
+            data.answer;
+
+    } catch (err) {
+
+        answerDiv.innerHTML =
+            "Error: " + err;
+    }
+}

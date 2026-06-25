@@ -1,10 +1,10 @@
 from __future__ import annotations
-
+from research_agent.rag import pipeline as rag_pipeline
 import asyncio
 import time
 from datetime import datetime, timezone
 from typing import AsyncIterator
-
+import uuid
 from research_agent.agentic_rag import build_research_summary
 from research_agent.config import Settings, settings as default_settings
 from research_agent.business_enrichment import BusinessEnricher
@@ -305,7 +305,58 @@ class ResearchAgent:
         )
         report_payload = report.to_dict()
         mongo_result = await self.mongo.save_report(report_payload)
-        completed_event = {"event": "completed", "report": report_payload}
+
+# -------------------------
+# RAG INDEXING
+# -------------------------
+        run_id = mongo_result.get("report_id") if mongo_result else str(int(time.time()))
+
+        evidence_text_items = []
+
+        for business in verified:
+
+            evidence_text_items.append({
+            "text": f"""
+Business Name: {business.business_name}
+
+Phone: {business.phone}
+
+Address: {business.address}
+
+Website: {business.website}
+
+Rating: {business.rating}
+
+Trust Score: {business.reliability_score}
+""",
+        "source_url": business.website or ""
+    })
+
+        try:
+          #test 
+            await rag_pipeline.index_evidence(
+             run_id,
+            evidence_text_items
+                )
+            print("CALLING RAG INDEXER")
+            print("RUN ID:", run_id)
+            print("ITEMS:", len(evidence_text_items))
+            '''  asyncio.create_task(
+        rag_pipeline.index_evidence(
+            run_id,
+            evidence_text_items
+        ) ) '''
+            
+        except Exception as e:
+            print("RAG Index Error:", e)
+
+# -------------------------
+
+        completed_event = {
+    "event": "completed",
+    "run_id": run_id,
+    "report": report_payload
+}
         if mongo_result:
             completed_event["mongo"] = mongo_result
         yield completed_event

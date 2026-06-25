@@ -11,6 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from research_agent.config import settings
 from research_agent.orchestrator import ResearchAgent
 from research_agent.pdf_report import build_research_pdf
+from research_agent.rag.router import router as rag_router
+
 
 app = FastAPI(
     title="AI Business Research Agent",
@@ -18,7 +20,7 @@ app = FastAPI(
     description="Public web business research, verification, dedupe, and structured reporting.",
 )
 app.mount("/static", StaticFiles(directory="research_agent/static"), name="static")
-
+app.include_router(rag_router)
 
 @app.get("/", response_class=HTMLResponse)
 async def index() -> str:
