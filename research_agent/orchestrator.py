@@ -182,17 +182,29 @@ class ResearchAgent:
                 return await fetch_and_extract(result)
 
         article_leads: list[BusinessRecord] = []
-        for future in asyncio.as_completed([worker(result) for result in search_results]):
-            try:
-                raw_record, leads = await future
-                article_leads.extend(leads)
-                record = verify_record(raw_record)
-            except Exception as exc:
-                source_errors.append(f"worker:{type(exc).__name__}")
-                continue
-            if should_stream_record(record, parsed, "web"):
-                records.append(record)
-                yield {"event": "business_discovered", "business": record.to_dict()}
+        extraction_tasks = [asyncio.create_task(worker(result)) for result in search_results]
+        if extraction_tasks:
+            yield {"event": "extraction_started", "candidate_urls": len(extraction_tasks)}
+            done, pending = await asyncio.wait(
+                extraction_tasks,
+                timeout=self.settings.extraction_timeout_seconds,
+            )
+            for task in pending:
+                task.cancel()
+            if pending:
+                source_errors.append(f"extraction_timeout:{len(pending)}")
+                yield {"event": "extraction_timeout", "cancelled_tasks": len(pending)}
+            for task in done:
+                try:
+                    raw_record, leads = task.result()
+                    article_leads.extend(leads)
+                    record = verify_record(raw_record)
+                except Exception as exc:
+                    source_errors.append(f"worker:{type(exc).__name__}")
+                    continue
+                if should_stream_record(record, parsed, "web"):
+                    records.append(record)
+                    yield {"event": "business_discovered", "business": record.to_dict()}
 
         if article_leads:
             yield {"event": "lead_mining_complete", "candidate_leads": len(article_leads)}

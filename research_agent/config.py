@@ -26,6 +26,7 @@ class Settings:
     concurrency: int = int(os.getenv("RESEARCH_CONCURRENCY", "12"))
     request_timeout_seconds: float = float(os.getenv("RESEARCH_REQUEST_TIMEOUT_SECONDS", "15"))
     search_timeout_seconds: float = float(os.getenv("RESEARCH_SEARCH_TIMEOUT_SECONDS", "12"))
+    extraction_timeout_seconds: float = float(os.getenv("RESEARCH_EXTRACTION_TIMEOUT_SECONDS", "30"))
     enrichment_timeout_seconds: float = float(os.getenv("RESEARCH_ENRICHMENT_TIMEOUT_SECONDS", "10"))
     max_search_pages: int = int(os.getenv("RESEARCH_MAX_SEARCH_PAGES", "2"))
     max_result_urls: int = int(os.getenv("RESEARCH_MAX_RESULT_URLS", "300"))

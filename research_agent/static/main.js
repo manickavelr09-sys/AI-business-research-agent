@@ -191,6 +191,12 @@ form.addEventListener("submit", async (event) => {
         if (payload.event === "discovery_complete" && payload.candidate_urls === 0) {
           showMessage("No candidate businesses found. Try a more specific location, such as Birmingham AL.");
         }
+        if (payload.event === "extraction_started") {
+          runButton.textContent = "Finalizing";
+        }
+        if (payload.event === "extraction_timeout") {
+          logEvent({ event: "finalizing_partial_report" });
+        }
         if (payload.event === "business_discovered" || payload.event === "business_enriched") {
           if (results.textContent.includes("Searching public sources")) results.innerHTML = "";
           renderBusiness(payload.business);
@@ -222,6 +228,7 @@ form.addEventListener("submit", async (event) => {
   } finally {
     if (!lastReport && results.textContent && !results.textContent.includes("Search stopped")) {
       logEvent({ event: "completed_event_missing" });
+      showMessage("Partial results were shown, but the final report did not complete. Try a smaller limit or rerun.");
     }
     if (activeController === controller) resetRunButton();
   }
