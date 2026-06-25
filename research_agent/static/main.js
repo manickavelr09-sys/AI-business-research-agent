@@ -7,6 +7,9 @@ const runButton = form.querySelector('button[type="submit"]');
 let lastReport = null;
 let activeController = null;
 const renderedCards = new Map();
+const readinessStatus = document.querySelector("#readiness-status");
+const readinessGrid = document.querySelector("#readiness-grid");
+const readinessWarnings = document.querySelector("#readiness-warnings");
 const summary = {
   businesses: document.querySelector("#businesses"),
   verified: document.querySelector("#verified"),
@@ -29,6 +32,47 @@ function logEvent(event) {
   while (events.children.length > 120) {
     events.lastElementChild?.remove();
   }
+}
+
+async function loadReadiness() {
+  if (!readinessGrid || !readinessStatus) return;
+  try {
+    const response = await fetch("/readiness");
+    if (!response.ok) throw new Error("readiness failed");
+    const payload = await response.json();
+    renderReadiness(payload);
+  } catch (error) {
+    readinessStatus.textContent = "Unavailable";
+    readinessStatus.className = "status-bad";
+    readinessGrid.innerHTML = "";
+    readinessWarnings.textContent = "Readiness check could not be loaded.";
+  }
+}
+
+function renderReadiness(payload) {
+  readinessStatus.textContent = payload.status || "unknown";
+  readinessStatus.className = payload.status === "ready" ? "status-ok" : "status-warn";
+  const providers = payload.providers || {};
+  const rows = [
+    ["Maps", providers.maps],
+    ["Search", providers.search],
+    ["Intelligence", providers.intelligence],
+    ["Storage", providers.storage],
+  ];
+  readinessGrid.innerHTML = rows
+    .map(([label, values]) => readinessGroup(label, values || {}))
+    .join("");
+  const warnings = payload.warnings || [];
+  readinessWarnings.innerHTML = warnings.length
+    ? warnings.map((warning) => `<div>${escapeHtml(warning)}</div>`).join("")
+    : "<div>All core providers are configured.</div>";
+}
+
+function readinessGroup(label, values) {
+  const items = Object.entries(values)
+    .map(([name, enabled]) => `<span class="${enabled ? "pill-on" : "pill-off"}">${escapeHtml(name.replaceAll("_", " "))}</span>`)
+    .join("");
+  return `<div><strong>${escapeHtml(label)}</strong><div class="provider-pills">${items}</div></div>`;
 }
 
 function field(label, verified, fallback = "") {
@@ -269,3 +313,4 @@ async function downloadReport() {
 
 pdfButton.addEventListener("click", downloadReport);
 pdfButtonSecondary.addEventListener("click", downloadReport);
+loadReadiness();

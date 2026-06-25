@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AI Business Research Agent</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260625-3" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260625-4" />
   </head>
   <body>
     <main class="app-shell">
@@ -19,6 +19,15 @@
           <button type="submit">Run</button>
           <button id="download-pdf" type="button" disabled>Report</button>
         </form>
+      </section>
+
+      <section class="readiness-panel" aria-label="System readiness">
+        <div class="readiness-heading">
+          <h2>System Readiness</h2>
+          <span id="readiness-status">Checking</span>
+        </div>
+        <div class="readiness-grid" id="readiness-grid"></div>
+        <div class="readiness-warnings" id="readiness-warnings"></div>
       </section>
 
       <section class="summary-grid" id="summary">
@@ -48,6 +57,6 @@
         <section class="results" id="results"></section>
       </section>
     </main>
-    <script src="/static/main.js?v=20260625-3"></script>
+    <script src="/static/main.js?v=20260625-4"></script>
   </body>
 </html>
