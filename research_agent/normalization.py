@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Mapping
+from typing import Any
 from urllib.parse import urlparse
 
 
@@ -11,20 +13,41 @@ BUSINESS_SUFFIX_RE = re.compile(
 )
 
 
-def normalize_text(value: str) -> str:
-    value = BUSINESS_SUFFIX_RE.sub(" ", value or "")
+def coerce_source_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, Mapping):
+        return " ".join(
+            coerce_source_text(item)
+            for item in value.values()
+            if item not in (None, "", [], {})
+        )
+    if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray)):
+        return " ".join(
+            coerce_source_text(item)
+            for item in value
+            if item not in (None, "", [], {})
+        )
+    return str(value)
+
+
+def normalize_text(value: Any) -> str:
+    value = BUSINESS_SUFFIX_RE.sub(" ", coerce_source_text(value))
     value = PUNCT_RE.sub(" ", value.lower())
     return " ".join(value.split())
 
 
-def normalize_phone(value: str) -> str:
-    digits = re.sub(r"\D", "", value or "")
+def normalize_phone(value: Any) -> str:
+    digits = re.sub(r"\D", "", coerce_source_text(value))
     if len(digits) == 11 and digits.startswith("1"):
         digits = digits[1:]
     return digits
 
 
-def normalize_url(value: str) -> str:
+def normalize_url(value: Any) -> str:
+    value = coerce_source_text(value)
     if not value:
         return ""
     parsed = urlparse(value if "://" in value else f"https://{value}")
@@ -32,8 +55,8 @@ def normalize_url(value: str) -> str:
     return host.rstrip("/")
 
 
-def normalize_address(value: str) -> str:
-    text = (value or "").lower()
+def normalize_address(value: Any) -> str:
+    text = coerce_source_text(value).lower()
     replacements = {
         " street": " st",
         " avenue": " ave",

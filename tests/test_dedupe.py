@@ -17,3 +17,10 @@ def test_dedupe_merges_duplicate() -> None:
     assert removed == 1
     assert len(merged) == 1
     assert merged[0].website == "https://abc.example"
+
+
+def test_dedupe_tolerates_list_phone_from_source_metadata() -> None:
+    left = BusinessRecord(business_name="ABC Heart Clinic", phone=["(205) 555-0100"])  # type: ignore[arg-type]
+    right = BusinessRecord(business_name="ABC Heart Clinic", phone="205-555-0100")
+
+    assert business_match_score(left, right) > 0.95

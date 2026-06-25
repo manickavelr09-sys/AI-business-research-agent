@@ -124,14 +124,21 @@ class ResearchAgent:
                 if filter_result(result, parsed):
                     result_urls.setdefault(result.url, result)
 
-        active_search_queries = search_queries[:8] if records else search_queries
-        active_search_pages = 1 if records else self.settings.max_search_pages
+        active_query_limit = 8 if records else 20
+        active_search_queries = search_queries[:active_query_limit]
+        active_search_pages = 1 if records else min(self.settings.max_search_pages, 2)
         search_tasks = [
             run_search(provider, search_query, page)
             for search_query in active_search_queries
             for page in range(1, active_search_pages + 1)
             for provider in self.providers
         ]
+        yield {
+            "event": "search_plan",
+            "queries": len(active_search_queries),
+            "providers": len(self.providers),
+            "pages": active_search_pages,
+        }
         if search_tasks:
             done, pending = await asyncio.wait(
                 [asyncio.create_task(task) for task in search_tasks],
