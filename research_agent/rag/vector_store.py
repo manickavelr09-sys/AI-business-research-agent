@@ -29,14 +29,32 @@ class VectorStore:
         )
     #test
     def search(self, query_vec: list[float], top_k: int):
-
         print("VECTOR COUNT:", len(self.vectors))
-
+    
         if not self.vectors:
             return []
-
+    
         mat = np.array(self.vectors, dtype=np.float32)
-        ''' def search(self, query_vec: list[float], top_k: int) -> list[tuple[str, str, float]]:
+        q = np.array(query_vec, dtype=np.float32)
+    
+        # Cosine similarity calculation
+        norms = np.linalg.norm(mat, axis=1)
+        q_norm = np.linalg.norm(q)
+    
+        # Avoid division by zero
+        norms = np.where(norms == 0, 1e-8, norms)
+        q_norm = q_norm if q_norm != 0 else 1e-8
+    
+        sims = mat @ q / (norms * q_norm)
+        top_idx = np.argsort(-sims)[:top_k]
+    
+        results = [(self.chunks[i], self.sources[i], float(sims[i])) for i in top_idx]
+        print(f"TOP RESULTS: {len(results)}")
+        for r in results:
+            print(f"Score: {r[2]:.3f} | Source: {r[1][:50]}")
+    
+        return results
+    ''' def search(self, query_vec: list[float], top_k: int) -> list[tuple[str, str, float]]:
         if not self.vectors:
             return []
         vectors=np.array(self.vectors, dtype=object)

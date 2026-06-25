@@ -56,33 +56,36 @@ async def index_evidence(run_id: str, evidence_items: list[dict]):
     return {"answer": answer, "sources": sources}'''
 #Test teh rag connection
 async def answer_question(run_id: str, question: str):
-
     print("\nQUESTION:", question)
     print("RUN ID:", run_id)
 
     store = VectorStore(run_id)
+    
+    # Check if store has data
+    print(f"STORE HAS {len(store.vectors)} vectors")
+    
+    if not store.vectors:
+        return {
+            "answer": "No research data found for this session. Please run a search first.",
+            "sources": []
+        }
 
     q_vec = await embed(question)
+    print(f"QUERY VECTOR SIZE: {len(q_vec)}")
 
-    results = store.search(
-        q_vec,
-        rag_config.top_k
-    )
-
+    results = store.search(q_vec, rag_config.top_k)
     print("RESULTS FOUND:", len(results))
 
-    for r in results:
-        print(r)
+    if not results:
+        return {
+            "answer": "No relevant information found in the research data.",
+            "sources": []
+        }
 
     chunks = [r[0] for r in results]
-
     sources = list({r[1] for r in results})
 
-    answer = await generate_answer(
-        question,
-        chunks
-    )
-
+    answer = await generate_answer(question, chunks)
     print("ANSWER:", answer)
 
     return {
