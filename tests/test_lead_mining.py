@@ -27,11 +27,13 @@ def test_extract_business_leads_from_generic_restaurant_article() -> None:
     )
 
     names = [lead.evidence[0].value for lead in leads]
+    direct_names = [lead.business_name for lead in leads]
     assert "Place to Bee" in names
     assert "Ascot Multi Cuisine Restaurant" in names
     assert "Angaara Restaurant Ooty" in names
     assert "Pankaj Bhojanalaya" in names
     assert "Best places to eat in Ooty" not in names
+    assert "Place to Bee" in direct_names
 
 
 def test_listicle_search_result_does_not_become_business_name() -> None:

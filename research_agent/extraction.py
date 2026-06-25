@@ -161,7 +161,7 @@ def extract_business_leads_from_html(url: str, html_text: str, category: str, lo
     for name in list(dict.fromkeys(_clean_lead_name(item) for item in leads)):
         if not name:
             continue
-        record = BusinessRecord()
+        record = BusinessRecord(business_name=name, services=[category])
         record.add_evidence(SourceEvidence("business_name", name, url, "article_lead", 0.36))
         record.add_evidence(SourceEvidence("services", [category], url, "article_lead", 0.36))
         records.append(record)

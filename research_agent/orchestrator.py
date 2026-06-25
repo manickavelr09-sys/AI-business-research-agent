@@ -8,12 +8,13 @@ from typing import AsyncIterator
 from research_agent.agentic_rag import build_research_summary
 from research_agent.config import Settings, settings as default_settings
 from research_agent.business_enrichment import BusinessEnricher
-from research_agent.dedupe import dedupe_records
+from research_agent.dedupe import dedupe_records, merge_businesses
 from research_agent.discovery import build_discovery_queries, build_source_plan, filter_result, result_relevance_score
 from research_agent.extraction import extract_business_from_html, extract_business_leads_from_html, record_from_search_result
 from research_agent.geoapify_provider import GeoapifyProvider
 from research_agent.http_client import HttpClient
 from research_agent.models import BusinessRecord, ResearchReport
+from research_agent.normalization import normalize_text
 from research_agent.mongo_store import MongoResearchStore
 from research_agent.places_provider import GooglePlacesProvider
 from research_agent.query_parser import parse_user_query
@@ -191,7 +192,7 @@ class ResearchAgent:
                         fetched.body,
                         parsed.category,
                         parsed.location,
-                        limit=8,
+                        limit=20,
                     )
                     return record, leads
             except Exception as exc:
@@ -230,6 +231,24 @@ class ResearchAgent:
         if article_leads:
             yield {"event": "lead_mining_complete", "candidate_leads": len(article_leads)}
             lead_deduped, _ = dedupe_records(article_leads)
+            yield {"event": "lead_places_enrichment_started", "candidate_leads": len(lead_deduped)}
+            place_enriched_leads = await self._enrich_leads_with_places(
+                lead_deduped[: min(len(lead_deduped), self.settings.lead_enrichment_limit, target_limit)],
+                parsed,
+                source_errors,
+            )
+            yielded_place_enriched = 0
+            for lead in place_enriched_leads:
+                verified_lead = verify_record(lead)
+                if should_stream_record(verified_lead, parsed, "serper_places"):
+                    records.append(verified_lead)
+                    yielded_place_enriched += 1
+                    yield {"event": "business_enriched", "business": verified_lead.to_dict()}
+            yield {
+                "event": "lead_places_enrichment_complete",
+                "candidate_leads": len(lead_deduped),
+                "businesses_enriched": yielded_place_enriched,
+            }
             enriched_leads = await self.enricher.enrich_many(
                 lead_deduped[: min(len(lead_deduped), self.settings.lead_enrichment_limit, target_limit)],
                 parsed,
@@ -278,6 +297,66 @@ class ResearchAgent:
             completed_event["mongo"] = mongo_result
         yield completed_event
 
+    async def _enrich_leads_with_places(
+        self,
+        leads: list[BusinessRecord],
+        parsed,
+        source_errors: list[str],
+    ) -> list[BusinessRecord]:
+        if not leads or not parsed.location:
+            return []
+        if not (self.serper_places.enabled or self.places.enabled):
+            return []
+        semaphore = asyncio.Semaphore(max(2, min(self.settings.concurrency, 8)))
+
+        async def enrich_one(lead: BusinessRecord) -> BusinessRecord | None:
+            if not lead.business_name:
+                lead = verify_record(lead)
+            if not lead.business_name:
+                return None
+            exact_query = type(parsed)(
+                raw=f"{lead.business_name} in {parsed.location}",
+                category=lead.business_name,
+                location=parsed.location,
+                modifiers=[],
+            )
+            candidates: list[BusinessRecord] = []
+            async with semaphore:
+                if self.serper_places.enabled:
+                    try:
+                        candidates.extend(await self.serper_places.search(exact_query, limit=4))
+                    except Exception as exc:
+                        source_errors.append(f"serper_places_exact:{type(exc).__name__}")
+                if self.places.enabled:
+                    try:
+                        candidates.extend(await self.places.search(exact_query, limit=3))
+                    except Exception as exc:
+                        source_errors.append(f"google_places_exact:{type(exc).__name__}")
+            verified_candidates = [verify_record(candidate) for candidate in candidates]
+            matched = [candidate for candidate in verified_candidates if _place_candidate_matches_lead(lead, candidate)]
+            if not matched:
+                return None
+            matched.sort(key=lambda candidate: _place_candidate_score(lead, candidate), reverse=True)
+            enriched = lead
+            for candidate in matched[:2]:
+                merge_businesses(enriched, candidate)
+            return verify_record(enriched)
+
+        tasks = [asyncio.create_task(enrich_one(lead)) for lead in leads]
+        if not tasks:
+            return []
+        done, pending = await asyncio.wait(tasks, timeout=max(self.settings.enrichment_timeout_seconds, 15))
+        for task in pending:
+            task.cancel()
+        enriched: list[BusinessRecord] = []
+        for task in done:
+            if task.cancelled() or task.exception() is not None:
+                continue
+            record = task.result()
+            if record:
+                enriched.append(record)
+        return enriched
+
     async def research(self, raw_query: str, limit: int | None = None) -> ResearchReport:
         report_data = None
         async for event in self.research_stream(raw_query, limit=limit):
@@ -298,3 +377,42 @@ class ResearchAgent:
             data_quality=report_data["data_quality_summary"],
             results=[],
         )
+
+
+def _place_candidate_matches_lead(lead: BusinessRecord, candidate: BusinessRecord) -> bool:
+    return _place_candidate_score(lead, candidate) >= 0.62
+
+
+def _place_candidate_score(lead: BusinessRecord, candidate: BusinessRecord) -> float:
+    lead_tokens = _important_name_tokens(lead.business_name)
+    candidate_tokens = _important_name_tokens(candidate.business_name)
+    if not lead_tokens or not candidate_tokens:
+        return 0.0
+    overlap = len(lead_tokens & candidate_tokens) / max(len(lead_tokens), 1)
+    candidate_overlap = len(lead_tokens & candidate_tokens) / max(len(candidate_tokens), 1)
+    score = overlap * 0.7 + candidate_overlap * 0.3
+    if normalize_text(lead.business_name) == normalize_text(candidate.business_name):
+        score = 1.0
+    elif normalize_text(lead.business_name) in normalize_text(candidate.business_name):
+        score = max(score, 0.82)
+    return score
+
+
+def _important_name_tokens(value: str) -> set[str]:
+    ignored = {
+        "the",
+        "and",
+        "restaurant",
+        "restaurants",
+        "hotel",
+        "clinic",
+        "shop",
+        "store",
+        "service",
+        "services",
+        "center",
+        "centre",
+        "near",
+        "in",
+    }
+    return {token for token in normalize_text(value).split() if len(token) > 2 and token not in ignored}
