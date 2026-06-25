@@ -7,7 +7,9 @@ from typing import Annotated
 from fastapi import Body, FastAPI, Query
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
+from pathlib import Path
 from research_agent.config import settings
 from research_agent.orchestrator import ResearchAgent
 from research_agent.pdf_report import build_research_pdf
@@ -19,14 +21,22 @@ app = FastAPI(
     version="0.1.0",
     description="Public web business research, verification, dedupe, and structured reporting.",
 )
+
 app.mount("/static", StaticFiles(directory="research_agent/static"), name="static")
 app.include_router(rag_router)
 
-@app.get("/", response_class=HTMLResponse)
-async def index() -> str:
-    with open("research_agent/static/index.html", "r", encoding="utf-8") as handle:
-        return handle.read()
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
+@app.get("/chat")
+async def chat_page():
+    chat_path = STATIC_DIR / "chat.html"
+    if not chat_path.exists():
+        raise HTTPException(status_code=404, detail=f"chat.html not found at {chat_path}")
+    return FileResponse(chat_path)
+
+@app.get("/chat")
+async def chat_page():
+    return FileResponse("static/chat.html")
 
 @app.get("/health")
 async def health() -> dict[str, str]:

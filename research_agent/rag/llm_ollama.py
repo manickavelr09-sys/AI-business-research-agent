@@ -20,6 +20,7 @@ async def generate_answer(question: str, context_chunks: list[str]) -> str:
                 ],
                 "stream": False,
             },
+            timeout=120.0
         )
         resp.raise_for_status()
         return resp.json()["message"]["content"]
