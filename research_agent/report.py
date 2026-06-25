@@ -13,6 +13,7 @@ def data_quality_summary(records: list[BusinessRecord]) -> dict[str, str]:
         "records_with_email": sum(1 for record in records if record.email),
         "records_with_address": sum(1 for record in records if record.address),
         "records_with_rating": sum(1 for record in records if record.rating),
+        "records_with_services": sum(1 for record in records if record.services or record.specialties),
     }
     return {key: f"{value / total:.0%}" for key, value in checks.items()}
 

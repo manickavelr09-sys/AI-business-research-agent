@@ -34,6 +34,14 @@ SERVICE_WORDS = (
     "procedures",
     "emergency",
     "consultation",
+    "menu",
+    "delivery",
+    "repair",
+    "installation",
+    "maintenance",
+    "cuisine",
+    "products",
+    "solutions",
 )
 
 LEAD_REJECT_PHRASES = (
@@ -115,6 +123,32 @@ def extract_business_leads_from_html(url: str, html_text: str, category: str, lo
         name = item.get("name")
         if isinstance(name, str) and _looks_like_lead_name(name, category, location, url):
             leads.append(name)
+        for child in _structured_children(item):
+            child_name = child.get("name") if isinstance(child, dict) else ""
+            if isinstance(child_name, str) and _looks_like_lead_name(child_name, category, location, url):
+                leads.append(child_name)
+    for selector in [
+        "[itemtype*='LocalBusiness']",
+        "[itemtype*='Restaurant']",
+        "[itemtype*='Store']",
+        "[itemtype*='MedicalBusiness']",
+        "[itemtype*='LegalService']",
+        ".business-name",
+        ".store-name",
+        ".listing-name",
+        ".result-title",
+        ".vendor-name",
+        ".company-name",
+        ".merchant-name",
+        ".jcn",
+    ]:
+        for node in soup.select(selector):
+            text = node.get_text(" ", strip=True)
+            for candidate in _split_lead_text(text):
+                if _looks_like_lead_name(candidate, category, location, url):
+                    leads.append(candidate)
+            if len(leads) >= limit * 4:
+                break
     for selector in ["h2", "h3", "h4", "strong", "li", "a"]:
         for node in soup.find_all(selector):
             text = node.get_text(" ", strip=True)
@@ -153,6 +187,25 @@ def _extract_json_ld(soup: BeautifulSoup) -> list[dict]:
     return items
 
 
+def _structured_children(item: dict) -> list[dict]:
+    children: list[dict] = []
+    for key in ("itemListElement", "review", "department", "makesOffer"):
+        value = item.get(key)
+        if isinstance(value, list):
+            candidates = value
+        elif isinstance(value, dict):
+            candidates = [value]
+        else:
+            candidates = []
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                continue
+            nested = candidate.get("item") if isinstance(candidate.get("item"), dict) else candidate
+            if isinstance(nested, dict):
+                children.append(nested)
+    return children
+
+
 def _apply_structured_data(
     record: BusinessRecord,
     item: dict,
@@ -176,6 +229,11 @@ def _apply_structured_data(
         "url": "website",
         "openingHours": "working_hours",
         "description": "services",
+        "servesCuisine": "services",
+        "menu": "services",
+        "keywords": "services",
+        "medicalSpecialty": "specialties",
+        "knowsAbout": "specialties",
     }
     for source_key, field_name in mapping.items():
         value = item.get(source_key)
@@ -337,6 +395,8 @@ def _looks_like_non_business_title(title: str, url: str) -> bool:
         phrase in normalized
         for phrase in (
             "what are",
+            "all you must know",
+            "yellow pages",
             "best restaurants",
             "top restaurants",
             "famous restaurants",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from research_agent.models import SearchQuery, SearchResult
@@ -12,6 +13,13 @@ from research_agent.locality import (
 from research_agent.query_parser import infer_industry
 
 
+@dataclass(frozen=True)
+class SourceQuery:
+    query: str
+    source_group: str
+    priority: int = 50
+
+
 GENERAL_SOURCES = [
     "yelp.com",
     "yellowpages.com",
@@ -19,8 +27,17 @@ GENERAL_SOURCES = [
     "justdial.com",
     "sulekha.com",
     "indiaonline.in",
+    "cybo.com",
+    "yappe.in",
+    "webindia123.com",
+    "cylex.in",
+    "hotfrog.in",
     "linkedin.com/company",
     "facebook.com",
+    "instagram.com",
+    "x.com",
+    "twitter.com",
+    "quora.com",
 ]
 
 INDUSTRY_SOURCES = {
@@ -51,10 +68,13 @@ INDUSTRY_SOURCES = {
     ],
     "food_hospitality": [
         "tripadvisor.com",
+        "tripadvisor.in",
         "zomato.com",
         "swiggy.com",
         "eazydiner.com",
         "restaurant-guru.in",
+        "dineout.co.in",
+        "magicpin.in",
         "facebook.com",
         "instagram.com",
     ],
@@ -81,6 +101,134 @@ INDUSTRY_SOURCES = {
         "facebook.com",
     ],
 }
+
+
+DIRECTORY_SOURCES = [
+    "justdial.com",
+    "sulekha.com",
+    "yellowpages.com",
+    "yelp.com",
+    "cybo.com",
+    "yappe.in",
+    "webindia123.com",
+    "cylex.in",
+    "hotfrog.com",
+    "hotfrog.in",
+    "bbb.org",
+]
+
+SOCIAL_SOURCES = [
+    "facebook.com",
+    "instagram.com",
+    "linkedin.com/company",
+    "x.com",
+    "twitter.com",
+    "youtube.com",
+]
+
+LEAD_SOURCES = [
+    "quora.com",
+    "reddit.com",
+    "medium.com",
+    "blog",
+]
+
+
+def build_source_plan(query: SearchQuery, budget: int = 36) -> list[SourceQuery]:
+    base = query.display()
+    industry = infer_industry(query.category)
+    categories = category_expansions(query.category)
+    locations = location_aliases(query.location) if query.location else [""]
+    primary_location = locations[0] if locations else query.location
+    plan: list[SourceQuery] = []
+
+    def add(text: str, group: str, priority: int) -> None:
+        plan.append(SourceQuery(text, group, priority))
+
+    for category in categories[:6]:
+        if primary_location:
+            add(f"{category} in {primary_location}", "places", 1)
+            add(f"{category} {primary_location} phone address", "contact", 2)
+            add(f'"{category}" "{primary_location}" contact number address', "contact", 3)
+            add(f'"{category}" "{primary_location}" official website phone services', "official", 4)
+            add(f'"{category}" "{primary_location}" reviews rating hours', "review", 6)
+            add(f'"{category}" "{primary_location}" services specialties', "services", 7)
+        else:
+            add(category, "places", 1)
+            add(f"{category} phone address website", "contact", 2)
+
+    for location in locations[:4]:
+        if not location:
+            continue
+        for source in DIRECTORY_SOURCES:
+            add(f'"{query.category}" "{location}" site:{source}', "directory", 10)
+        for source in INDUSTRY_SOURCES.get(industry, [])[:8]:
+            add(f'"{query.category}" "{location}" site:{source}', "industry_directory", 12)
+        for source in SOCIAL_SOURCES:
+            add(f'"{query.category}" "{location}" site:{source}', "social", 18)
+        for source in LEAD_SOURCES:
+            add(f'"{query.category}" "{location}" site:{source}', "lead_article", 24)
+
+    add(f"{base} Google maps reviews", "places", 5)
+    add(f"{base} business directory phone address", "directory", 9)
+    add(f"{base} official website contact services", "official", 11)
+    add(f"{base} Facebook Instagram LinkedIn", "social", 19)
+    add(f"{base} Quora Reddit recommendations names", "lead_article", 25)
+
+    if industry == "healthcare":
+        add(f"{base} license NPI board certified", "regulated", 8)
+    elif industry == "legal":
+        add(f"{base} bar license practice areas", "regulated", 8)
+    elif industry == "trades":
+        add(f"{base} license insured services reviews", "regulated", 8)
+    elif industry == "food_hospitality":
+        add(f"{base} menu photos reviews phone", "review", 8)
+        add(f"{base} delivery contact number", "services", 9)
+    elif industry == "retail":
+        add(f"{base} showroom catalogue photos reviews", "services", 9)
+    elif industry == "wellness":
+        add(f"{base} appointment phone services price list", "services", 9)
+    elif industry == "education":
+        add(f"{base} admission contact affiliation reviews", "regulated", 9)
+
+    unique: dict[str, SourceQuery] = {}
+    for item in sorted(plan, key=lambda value: value.priority):
+        unique.setdefault(item.query, item)
+    return _balance_source_queries(list(unique.values()), budget)
+
+
+def _balance_source_queries(plan: list[SourceQuery], budget: int) -> list[SourceQuery]:
+    if len(plan) <= budget:
+        return plan
+    group_order = [
+        "places",
+        "contact",
+        "directory",
+        "industry_directory",
+        "official",
+        "review",
+        "services",
+        "regulated",
+        "social",
+        "lead_article",
+    ]
+    groups: dict[str, list[SourceQuery]] = {group: [] for group in group_order}
+    for item in plan:
+        groups.setdefault(item.source_group, []).append(item)
+
+    selected: list[SourceQuery] = []
+    while len(selected) < budget:
+        changed = False
+        for group in group_order:
+            if len(selected) >= budget:
+                break
+            bucket = groups.get(group) or []
+            if bucket:
+                selected.append(bucket.pop(0))
+                changed = True
+        if not changed:
+            break
+    return selected
 
 
 def build_discovery_queries(query: SearchQuery) -> list[str]:

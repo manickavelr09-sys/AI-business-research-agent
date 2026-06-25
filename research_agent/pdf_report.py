@@ -94,7 +94,8 @@ def _summary_table(summary: dict[str, Any], quality: dict[str, Any], styles) -> 
             _safe(summary.get("sources_searched", "")),
         ],
         ["Duration", _safe(summary.get("research_duration", "")), "Website Coverage", _safe(quality.get("records_with_website", ""))],
-        ["Phone Coverage", _safe(quality.get("records_with_phone_number", "")), "License Coverage", _safe(quality.get("records_with_license_information", ""))],
+        ["Phone Coverage", _safe(quality.get("records_with_phone_number", "")), "Service Coverage", _safe(quality.get("records_with_services", ""))],
+        ["Address Coverage", _safe(quality.get("records_with_address", "")), "License Coverage", _safe(quality.get("records_with_license_information", ""))],
     ]
     table = Table([[Paragraph(str(cell), styles["FieldValue"]) for cell in row] for row in rows], colWidths=[1.35 * inch, 1.55 * inch, 1.35 * inch, 1.55 * inch])
     table.setStyle(

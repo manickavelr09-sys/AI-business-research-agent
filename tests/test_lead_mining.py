@@ -1,4 +1,4 @@
-from research_agent.extraction import extract_business_leads_from_html, record_from_search_result
+from research_agent.extraction import extract_business_from_html, extract_business_leads_from_html, record_from_search_result
 from research_agent.models import SearchResult
 
 
@@ -46,3 +46,43 @@ def test_listicle_search_result_does_not_become_business_name() -> None:
     )
 
     assert record.business_name == ""
+
+
+def test_extracts_business_names_from_json_ld_item_list() -> None:
+    html = """
+    <script type="application/ld+json">
+    {
+      "@type": "ItemList",
+      "itemListElement": [
+        {"@type": "ListItem", "item": {"@type": "Restaurant", "name": "Sea View Restaurant"}},
+        {"@type": "ListItem", "item": {"@type": "Restaurant", "name": "The Curry"}}
+      ]
+    }
+    </script>
+    """
+
+    leads = extract_business_leads_from_html("https://example.com/restaurants", html, "restaurants", "kanyakumari")
+    names = [lead.evidence[0].value for lead in leads]
+
+    assert "Sea View Restaurant" in names
+    assert "The Curry" in names
+
+
+def test_structured_data_services_are_extracted() -> None:
+    html = """
+    <script type="application/ld+json">
+    {
+      "@type": "Restaurant",
+      "name": "Sea View Restaurant",
+      "telephone": "+91 76959 59109",
+      "servesCuisine": ["Seafood", "South Indian"],
+      "menu": "https://example.com/menu"
+    }
+    </script>
+    """
+
+    record = extract_business_from_html("https://seaview.example", html)
+
+    service_values = [item.value for item in record.evidence if item.field == "services"]
+    assert ["Seafood", "South Indian"] in service_values
+    assert "https://example.com/menu" in service_values

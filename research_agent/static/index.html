@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AI Business Research Agent</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260625-2" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260625-3" />
   </head>
   <body>
     <main class="app-shell">
@@ -15,7 +15,7 @@
         </div>
         <form id="research-form" class="search-form">
           <input id="query" name="query" value="Cardiologists in Birmingham" autocomplete="off" />
-          <input id="limit" name="limit" type="number" min="1" max="5000" value="50" title="Candidate URL limit" />
+          <input id="limit" name="limit" type="number" min="1" max="5000" value="100" title="Target result limit" />
           <button type="submit">Run</button>
           <button id="download-pdf" type="button" disabled>Report</button>
         </form>
@@ -39,6 +39,7 @@
           <div><span>With Website</span><strong id="quality-website">0%</strong></div>
           <div><span>With Rating</span><strong id="quality-rating">0%</strong></div>
           <div><span>With Hours</span><strong id="quality-hours">0%</strong></div>
+          <div><span>With Services</span><strong id="quality-services">0%</strong></div>
         </div>
       </section>
 
@@ -47,6 +48,6 @@
         <section class="results" id="results"></section>
       </section>
     </main>
-    <script src="/static/main.js?v=20260625-2"></script>
+    <script src="/static/main.js?v=20260625-3"></script>
   </body>
 </html>

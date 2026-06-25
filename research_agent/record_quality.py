@@ -14,8 +14,22 @@ DIRECTORY_HOSTS = (
     "healthgrades.",
     "webmd.",
     "yellowpages.",
+    "yellowpages-india.",
     "yelp.",
     "practo.",
+    "webindia123.",
+    "cybo.",
+    "yappe.",
+    "cylex.",
+    "hotfrog.",
+)
+
+REVIEW_HOSTS = (
+    "tripadvisor.",
+    "zomato.",
+    "restaurant-guru.",
+    "magicpin.",
+    "dineout.",
 )
 
 CONTENT_HOSTS = (
@@ -53,6 +67,7 @@ GENERIC_BUSINESS_NAMES = {
     "access denied",
     "sulekha.com",
     "sulekha com",
+    "yellow pages",
     "service experts",
     "electrical electronics",
 }
@@ -103,6 +118,7 @@ GENERIC_TITLE_PHRASES = (
     "phone numbers in",
     "travelling to",
     "traveling to",
+    "all you must know",
     "well regarded",
     "well-regarded",
 )
@@ -132,7 +148,9 @@ def should_stream_record(record: BusinessRecord, query: SearchQuery, source_kind
         return True
 
     # A direct official-looking site with a specific business name is useful as a seed.
-    return bool(record.website and not _host_is_directory(record.website))
+    if _host_is_evidence_only(record.website):
+        return False
+    return bool(record.website)
 
 
 def _record_has_location(record: BusinessRecord, query: SearchQuery) -> bool:
@@ -194,6 +212,8 @@ def _looks_like_generic_listing(record: BusinessRecord, query: SearchQuery) -> b
         return True
     if _host_is_directory(record.website) and _looks_like_directory_title(name):
         return True
+    if _host_is_review_page(record.website) and _looks_like_directory_title(name):
+        return True
     has_business_fields = bool(record.address or record.phone or record.email or record.working_hours)
     if has_business_fields:
         return False
@@ -244,9 +264,18 @@ def _host_is_directory(url: str) -> bool:
     return any(marker in host for marker in DIRECTORY_HOSTS)
 
 
+def _host_is_review_page(url: str) -> bool:
+    host = urlparse(url).netloc.lower()
+    return any(marker in host for marker in REVIEW_HOSTS)
+
+
 def _host_is_content_page(url: str) -> bool:
     host = urlparse(url).netloc.lower()
     return any(marker in host for marker in CONTENT_HOSTS)
+
+
+def _host_is_evidence_only(url: str) -> bool:
+    return _host_is_directory(url) or _host_is_review_page(url) or _host_is_content_page(url)
 
 
 def _looks_like_directory_title(name: str) -> bool:
@@ -254,12 +283,14 @@ def _looks_like_directory_title(name: str) -> bool:
         phrase in name
         for phrase in (
             "restaurants",
+            "yellow pages",
             "companies",
             "directory",
             "near me",
             "order online",
             "check prices",
             "reviews",
+            "all you must know",
         )
     )
 

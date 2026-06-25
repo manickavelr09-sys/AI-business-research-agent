@@ -1,4 +1,4 @@
-from research_agent.discovery import build_discovery_queries, result_relevance_score
+from research_agent.discovery import build_discovery_queries, build_source_plan, result_relevance_score
 from research_agent.locality import category_expansions
 from research_agent.models import SearchQuery, SearchResult
 from research_agent.query_parser import infer_industry
@@ -27,6 +27,18 @@ def test_discovery_queries_include_contact_and_industry_sources() -> None:
     assert any("official website" in item for item in queries)
     assert any("menu photos reviews" in item for item in queries)
     assert any("site:zomato.com" in item for item in queries)
+
+
+def test_source_plan_balances_maps_directories_social_and_leads() -> None:
+    query = SearchQuery(raw="restaurants in kanyakumari", category="restaurants", location="kanyakumari")
+    plan = build_source_plan(query, budget=24)
+    groups = {item.source_group for item in plan}
+
+    assert len(plan) == 24
+    assert {"places", "directory", "official", "review", "social", "lead_article"}.issubset(groups)
+    assert any("site:facebook.com" in item.query for item in plan)
+    assert any("site:quora.com" in item.query for item in plan)
+    assert any("services" in item.query or "menu" in item.query for item in plan)
 
 
 def test_relevance_uses_expanded_category_terms() -> None:

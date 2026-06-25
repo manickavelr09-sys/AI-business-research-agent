@@ -9,7 +9,7 @@ from research_agent.agentic_rag import build_research_summary
 from research_agent.config import Settings, settings as default_settings
 from research_agent.business_enrichment import BusinessEnricher
 from research_agent.dedupe import dedupe_records
-from research_agent.discovery import build_discovery_queries, filter_result, result_relevance_score
+from research_agent.discovery import build_discovery_queries, build_source_plan, filter_result, result_relevance_score
 from research_agent.extraction import extract_business_from_html, extract_business_leads_from_html, record_from_search_result
 from research_agent.geoapify_provider import GeoapifyProvider
 from research_agent.http_client import HttpClient
@@ -19,7 +19,7 @@ from research_agent.places_provider import GooglePlacesProvider
 from research_agent.query_parser import parse_user_query
 from research_agent.record_quality import should_stream_record
 from research_agent.report import data_quality_summary, verified_count
-from research_agent.search_providers import BingHtmlProvider, DuckDuckGoHtmlProvider, SearchProvider, SerperSearchProvider, TavilySearchProvider
+from research_agent.search_providers import BraveSearchProvider, BingHtmlProvider, DuckDuckGoHtmlProvider, SearchProvider, SerperSearchProvider, TavilySearchProvider
 from research_agent.serper_provider import SerperPlacesProvider
 from research_agent.storage import ResearchCache
 from research_agent.verification import verify_record
@@ -37,6 +37,7 @@ class ResearchAgent:
         self.providers: list[SearchProvider] = [
             SerperSearchProvider(self.http, self.cache),
             TavilySearchProvider(self.http, self.cache),
+            BraveSearchProvider(self.http, self.cache),
             DuckDuckGoHtmlProvider(self.http, self.cache),
             BingHtmlProvider(self.http, self.cache),
         ]
@@ -53,13 +54,15 @@ class ResearchAgent:
         yield {"event": "started", "query": parsed.display(), "started_at": started_at}
 
         search_queries = build_discovery_queries(parsed)
+        target_limit = min(max(limit or 100, 1), 5000)
+        source_plan = build_source_plan(parsed, budget=max(12, self.settings.search_query_budget))
         result_urls: dict[str, object] = {}
         searched_sources = set()
         source_errors: list[str] = []
         semaphore = asyncio.Semaphore(self.settings.concurrency)
         records: list[BusinessRecord] = []
         try:
-            geoapify_records = await self.geoapify.search(parsed, limit=min(limit or 50, 80))
+            geoapify_records = await self.geoapify.search(parsed, limit=min(target_limit, 120))
         except Exception as exc:
             geoapify_records = []
             source_errors.append(f"geoapify:{type(exc).__name__}")
@@ -69,7 +72,7 @@ class ResearchAgent:
             yield {"event": "geoapify_complete", "candidate_records": len(geoapify_records)}
 
         try:
-            place_records = await self.places.search(parsed, limit=min(limit or 20, 40))
+            place_records = await self.places.search(parsed, limit=min(target_limit, 80))
         except Exception as exc:
             place_records = []
             source_errors.append(f"google_places:{type(exc).__name__}")
@@ -79,7 +82,7 @@ class ResearchAgent:
             yield {"event": "places_complete", "candidate_records": len(place_records)}
 
         try:
-            serper_place_records = await self.serper_places.search(parsed, limit=min(limit or 40, 80))
+            serper_place_records = await self.serper_places.search(parsed, limit=min(target_limit, 140))
         except Exception as exc:
             serper_place_records = []
             source_errors.append(f"serper_places:{type(exc).__name__}")
@@ -97,11 +100,13 @@ class ResearchAgent:
             if should_stream_record(verified_map_record, parsed, source_kind):
                 records.append(verified_map_record)
                 yield {"event": "business_discovered", "business": verified_map_record.to_dict()}
+                if len(records) >= target_limit:
+                    break
 
         if records:
             yield {"event": "business_enrichment_started", "records": len(records)}
             enriched_map_records = await self.enricher.enrich_many(
-                records[: min(len(records), limit or 20)],
+                records[: min(len(records), target_limit)],
                 parsed,
                 per_business_limit=2,
                 timeout_seconds=self.settings.enrichment_timeout_seconds,
@@ -124,8 +129,9 @@ class ResearchAgent:
                 if filter_result(result, parsed):
                     result_urls.setdefault(result.url, result)
 
-        active_query_limit = 8 if records else 20
-        active_search_queries = search_queries[:active_query_limit]
+        active_query_limit = min(12 if records else self.settings.search_query_budget, len(source_plan))
+        active_source_plan = source_plan[:active_query_limit]
+        active_search_queries = [item.query for item in active_source_plan]
         active_search_pages = 1 if records else min(self.settings.max_search_pages, 2)
         search_tasks = [
             run_search(provider, search_query, page)
@@ -138,6 +144,7 @@ class ResearchAgent:
             "queries": len(active_search_queries),
             "providers": len(self.providers),
             "pages": active_search_pages,
+            "source_groups": sorted({item.source_group for item in active_source_plan}),
         }
         if search_tasks:
             done, pending = await asyncio.wait(
@@ -159,7 +166,7 @@ class ResearchAgent:
             reverse=True,
         )[: self.settings.max_result_urls]
         if limit:
-            search_results = search_results[:limit]
+            search_results = search_results[:target_limit]
         yield {
             "event": "discovery_complete",
             "candidate_urls": len(search_results),
@@ -217,10 +224,10 @@ class ResearchAgent:
             yield {"event": "lead_mining_complete", "candidate_leads": len(article_leads)}
             lead_deduped, _ = dedupe_records(article_leads)
             enriched_leads = await self.enricher.enrich_many(
-                lead_deduped[: min(len(lead_deduped), limit or 20)],
+                lead_deduped[: min(len(lead_deduped), self.settings.lead_enrichment_limit, target_limit)],
                 parsed,
-                per_business_limit=2,
-                timeout_seconds=self.settings.enrichment_timeout_seconds,
+                per_business_limit=3,
+                timeout_seconds=max(self.settings.enrichment_timeout_seconds, 15),
             )
             for lead in enriched_leads:
                 verified_lead = verify_record(lead)

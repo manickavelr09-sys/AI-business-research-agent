@@ -106,7 +106,7 @@ def verify_record(record: BusinessRecord) -> BusinessRecord:
                 values.extend(str(value) for value in item.value if value)
             elif item.value:
                 values.append(str(item.value))
-        deduped = list(dict.fromkeys(values))
+        deduped = _clean_list_values(field_name, values, record.business_name)
         if deduped:
             setattr(record, field_name, deduped)
             verification[field_name] = VerifiedValue(
@@ -125,3 +125,28 @@ def verify_record(record: BusinessRecord) -> BusinessRecord:
     )
     record.reliability_score = min(completeness * 0.35 + verification_strength * 0.65, 1.0)
     return record
+
+
+def _clean_list_values(field_name: str, values: list[str], business_name: str = "") -> list[str]:
+    cleaned: list[str] = []
+    business_key = normalize_text(business_name)
+    for raw_value in values:
+        pieces = [raw_value]
+        if field_name in {"services", "specialties"}:
+            pieces = re.split(r"\s*(?:,|;|\|)\s*", raw_value)
+        for piece in pieces:
+            value = " ".join(piece.strip(" -.,").split())
+            key = normalize_text(value)
+            if not value:
+                continue
+            if field_name in {"services", "specialties"}:
+                if value.startswith(("http://", "https://")):
+                    continue
+                if key in {"menu", "see menu", "view menu", "book now", "contact us"}:
+                    continue
+                if business_key and key == business_key:
+                    continue
+                if len(value) < 3:
+                    continue
+            cleaned.append(value)
+    return list(dict.fromkeys(cleaned))

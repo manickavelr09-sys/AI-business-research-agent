@@ -19,6 +19,7 @@ const quality = {
   website: document.querySelector("#quality-website"),
   rating: document.querySelector("#quality-rating"),
   hours: document.querySelector("#quality-hours"),
+  services: document.querySelector("#quality-services"),
 };
 
 function logEvent(event) {
@@ -216,6 +217,7 @@ form.addEventListener("submit", async (event) => {
           quality.website.textContent = dataQuality.records_with_website || "0%";
           quality.rating.textContent = dataQuality.records_with_rating || "0%";
           quality.hours.textContent = dataQuality.records_with_working_hours || "0%";
+          quality.services.textContent = dataQuality.records_with_services || "0%";
           renderFinalBusinesses(payload.report.business_results || []);
         }
       }

@@ -38,3 +38,20 @@ def test_verification_cleans_directory_phone_and_address_display() -> None:
 
     assert verified.phone == "8667510681"
     assert verified.address == "Vivekanandapuram, Kanyakumari - 629702, Kanyakumari, 629702, IN"
+
+
+def test_verification_cleans_noisy_services() -> None:
+    record = BusinessRecord(business_name="Sea View Restaurant")
+    record.add_evidence(
+        SourceEvidence(
+            "services",
+            ["Sea View Restaurant", "Indian, Chinese, Seafood", "https://example.com/menu", "SEE MENU"],
+            "https://site.example",
+            "official_website",
+            0.95,
+        )
+    )
+
+    verified = verify_record(record)
+
+    assert verified.services == ["Indian", "Chinese", "Seafood"]

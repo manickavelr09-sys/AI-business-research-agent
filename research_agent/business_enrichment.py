@@ -109,11 +109,22 @@ class BusinessEnricher:
     def _queries(self, record: BusinessRecord, query: SearchQuery) -> list[str]:
         name = record.business_name
         location = query.location
+        industry = infer_industry(query.category)
         searches = [
             f'"{name}" "{location}" phone',
             f'"{name}" "{location}" contact number',
+            f'"{name}" "{location}" address services',
+            f'"{name}" "{location}" official website',
         ]
-        for source in DIRECTORY_BOOSTS.get(infer_industry(query.category), DIRECTORY_BOOSTS["general"])[:3]:
+        if industry == "food_hospitality":
+            searches.append(f'"{name}" "{location}" menu reviews phone')
+        elif industry == "trades":
+            searches.append(f'"{name}" "{location}" services license insured')
+        elif industry == "healthcare":
+            searches.append(f'"{name}" "{location}" specialties appointment')
+        elif industry == "legal":
+            searches.append(f'"{name}" "{location}" practice areas bar license')
+        for source in DIRECTORY_BOOSTS.get(industry, DIRECTORY_BOOSTS["general"])[:3]:
             searches.append(f'"{name}" "{location}" site:{source}')
         return list(dict.fromkeys(searches))
 

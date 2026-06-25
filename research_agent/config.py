@@ -46,6 +46,8 @@ class Settings:
     search_timeout_seconds: float = float(os.getenv("RESEARCH_SEARCH_TIMEOUT_SECONDS", "12"))
     extraction_timeout_seconds: float = float(os.getenv("RESEARCH_EXTRACTION_TIMEOUT_SECONDS", "30"))
     enrichment_timeout_seconds: float = float(os.getenv("RESEARCH_ENRICHMENT_TIMEOUT_SECONDS", "10"))
+    search_query_budget: int = int(os.getenv("RESEARCH_SEARCH_QUERY_BUDGET", "36"))
+    lead_enrichment_limit: int = int(os.getenv("RESEARCH_LEAD_ENRICHMENT_LIMIT", "100"))
     max_search_pages: int = int(os.getenv("RESEARCH_MAX_SEARCH_PAGES", "2"))
     max_result_urls: int = int(os.getenv("RESEARCH_MAX_RESULT_URLS", "300"))
     user_agent: str = os.getenv(
@@ -61,6 +63,7 @@ class Settings:
     geoapify_fallback_api_key: str = os.getenv("GEOAPIFY_FALLBACK_API_KEY", "")
     serper_api_key: str = os.getenv("SERPER_API_KEY", "")
     tavily_api_key: str = os.getenv("TAVILY_API_KEY", "")
+    brave_search_api_key: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
     llm_api_key: str = os.getenv("LLM_API_KEY", os.getenv("OPENAI_API_KEY", ""))
     llm_base_url: str = os.getenv("LLM_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"))
     llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")

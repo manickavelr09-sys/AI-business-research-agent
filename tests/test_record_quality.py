@@ -221,3 +221,21 @@ def test_google_maps_search_page_is_not_business_record() -> None:
         website="https://www.google.com/maps/search/Dine+at+a+Local+Restaurant,+Kanyakumari,+India",
     )
     assert not should_stream_record(record, query, "web")
+
+
+def test_tripadvisor_tourism_page_is_not_business_record() -> None:
+    query = SearchQuery(raw="restaurants in kanyakumari", category="restaurants", location="kanyakumari")
+    record = BusinessRecord(
+        business_name="Kanyakumari, India: All You Must Know Before You Go (2026)",
+        website="https://www.tripadvisor.com/Tourism-g608476-Kanyakumari_Kanyakumari_District_Tamil_Nadu-Vacations.html",
+    )
+    assert not should_stream_record(record, query, "web")
+
+
+def test_yellow_pages_city_directory_is_not_business_record() -> None:
+    query = SearchQuery(raw="restaurants in kanyakumari", category="restaurants", location="kanyakumari")
+    record = BusinessRecord(
+        business_name="Kanyakumari Yellow Pages",
+        website="https://www.yellowpages-india.in/kanyakumari",
+    )
+    assert not should_stream_record(record, query, "web")
