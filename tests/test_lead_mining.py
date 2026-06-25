@@ -1,4 +1,5 @@
-from research_agent.extraction import extract_business_leads_from_html
+from research_agent.extraction import extract_business_leads_from_html, record_from_search_result
+from research_agent.models import SearchResult
 
 
 def test_extract_business_leads_from_generic_restaurant_article() -> None:
@@ -31,3 +32,17 @@ def test_extract_business_leads_from_generic_restaurant_article() -> None:
     assert "Angaara Restaurant Ooty" in names
     assert "Pankaj Bhojanalaya" in names
     assert "Best places to eat in Ooty" not in names
+
+
+def test_listicle_search_result_does_not_become_business_name() -> None:
+    record = record_from_search_result(
+        SearchResult(
+            title="Famous 14 Restaurants in Kanyakumari for Culinary Delights",
+            url="https://travelmax.in/india/tamil-nadu/kanyakumari/famous-14-restaurants-in-kanyakumari-for-culinary-delights/",
+            snippet="A guide to restaurants in Kanyakumari.",
+            provider="test",
+            rank=1,
+        )
+    )
+
+    assert record.business_name == ""

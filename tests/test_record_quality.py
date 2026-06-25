@@ -203,3 +203,21 @@ def test_sentence_style_article_lead_is_not_business_record() -> None:
         website="https://example.com/ooty-food-guide",
     )
     assert not should_stream_record(record, query, "web")
+
+
+def test_restaurant_listicle_is_not_business_record() -> None:
+    query = SearchQuery(raw="restaurants in kanyakumari", category="restaurants", location="kanyakumari")
+    record = BusinessRecord(
+        business_name="Famous 14 Restaurants in Kanyakumari for Culinary Delights",
+        website="https://travelmax.in/india/tamil-nadu/kanyakumari/famous-14-restaurants-in-kanyakumari-for-culinary-delights/",
+    )
+    assert not should_stream_record(record, query, "web")
+
+
+def test_google_maps_search_page_is_not_business_record() -> None:
+    query = SearchQuery(raw="restaurants in kanyakumari", category="restaurants", location="kanyakumari")
+    record = BusinessRecord(
+        business_name="Google",
+        website="https://www.google.com/maps/search/Dine+at+a+Local+Restaurant,+Kanyakumari,+India",
+    )
+    assert not should_stream_record(record, query, "web")

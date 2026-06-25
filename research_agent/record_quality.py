@@ -45,6 +45,7 @@ GENERIC_PHRASES = (
 
 GENERIC_BUSINESS_NAMES = {
     "dining",
+    "google",
     "tripadvisor",
     "ooty restaurants",
     "ooty india",
@@ -68,7 +69,9 @@ GENERIC_TITLE_PHRASES = (
     "places to eat",
     "food guide",
     "famous food",
+    "famous restaurants",
     "local delights",
+    "culinary delights",
     "best places",
     "best attractions",
     "popular restaurants",
@@ -181,6 +184,8 @@ def _looks_like_generic_listing(record: BusinessRecord, query: SearchQuery) -> b
         return True
     if any(phrase in name for phrase in GENERIC_TITLE_PHRASES):
         return True
+    if _looks_like_category_listicle(name, category_variants):
+        return True
     if name.endswith("?"):
         return True
     if _host_is_content_page(record.website):
@@ -257,6 +262,22 @@ def _looks_like_directory_title(name: str) -> bool:
             "reviews",
         )
     )
+
+
+def _looks_like_category_listicle(name: str, category_variants: set[str]) -> bool:
+    if not any(variant in name for variant in category_variants):
+        return False
+    if any(token in name for token in (" updated ", " food lovers", " culinary ", " district")):
+        return True
+    if any(name.startswith(prefix) for prefix in ("best ", "top ", "famous ", "popular ")):
+        return True
+    if name.startswith("the ") and " best " in name:
+        return True
+    if any(char.isdigit() for char in name) and any(
+        token in name for token in ("best", "top", "famous", "updated")
+    ):
+        return True
+    return False
 
 
 def _looks_like_sentence_or_seo_title(raw_name: str) -> bool:

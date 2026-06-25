@@ -17,6 +17,9 @@ DIRECTORY_BOOSTS = {
     "healthcare": ["practo.com", "dentee.com", "lybrate.com", "justdial.com", "sulekha.com"],
     "legal": ["justia.com", "avvo.com", "findlaw.com", "lawyers.com"],
     "trades": ["justdial.com", "sulekha.com", "indiamart.com", "yellowpages.com"],
+    "food_hospitality": ["tripadvisor.in", "zomato.com", "restaurant-guru.in", "facebook.com", "justdial.com"],
+    "retail": ["justdial.com", "sulekha.com", "indiamart.com", "facebook.com"],
+    "wellness": ["justdial.com", "sulekha.com", "practo.com", "facebook.com"],
     "general": ["justdial.com", "sulekha.com", "yelp.com", "yellowpages.com"],
 }
 
@@ -110,7 +113,7 @@ class BusinessEnricher:
             f'"{name}" "{location}" phone',
             f'"{name}" "{location}" contact number',
         ]
-        for source in DIRECTORY_BOOSTS.get(infer_industry(query.category), DIRECTORY_BOOSTS["general"])[:2]:
+        for source in DIRECTORY_BOOSTS.get(infer_industry(query.category), DIRECTORY_BOOSTS["general"])[:3]:
             searches.append(f'"{name}" "{location}" site:{source}')
         return list(dict.fromkeys(searches))
 

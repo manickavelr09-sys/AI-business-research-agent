@@ -43,6 +43,8 @@ def normalize_phone(value: Any) -> str:
     digits = re.sub(r"\D", "", coerce_source_text(value))
     if len(digits) == 11 and digits.startswith("1"):
         digits = digits[1:]
+    if len(digits) < 8:
+        return ""
     return digits
 
 

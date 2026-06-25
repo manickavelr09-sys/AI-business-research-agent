@@ -322,17 +322,29 @@ def _looks_like_lead_name(value: str, category: str, location: str, url: str) ->
 def _looks_like_non_business_title(title: str, url: str) -> bool:
     normalized = re.sub(r"[^a-z0-9]+", " ", (title or "").lower()).strip()
     host = urlparse(url).netloc.lower()
+    path = urlparse(url).path.lower()
+    if normalized == "google" and "google." in host:
+        return True
+    if "google." in host and path.startswith("/maps/search"):
+        return True
     if any(marker in host for marker in ("quora.", "reddit.", "youtube.", "youtu.be", "wanderlog.", "treebo.")):
         return True
     if normalized in {"dining", "tripadvisor", "ooty restaurants", "ooty india"}:
+        return True
+    if _looks_like_listicle_title(normalized):
         return True
     return any(
         phrase in normalized
         for phrase in (
             "what are",
+            "best restaurants",
+            "top restaurants",
+            "famous restaurants",
+            "the 10 best",
             "must try",
             "places to eat",
             "food guide",
+            "culinary delights",
             "business directory",
             "list of companies",
             "best attractions",
@@ -340,6 +352,23 @@ def _looks_like_non_business_title(title: str, url: str) -> bool:
             "restaurants near",
         )
     )
+
+
+def _looks_like_listicle_title(normalized: str) -> bool:
+    category_words = ("restaurant", "restaurants", "dentist", "dentists", "doctor", "doctors", "electrician", "electricians", "plumber", "plumbers", "shop", "shops", "salon", "salons")
+    if not any(word in normalized for word in category_words):
+        return False
+    if normalized.startswith(("best ", "top ", "famous ", "popular ")):
+        return True
+    if normalized.startswith("the ") and " best " in normalized:
+        return True
+    if any(token in normalized for token in (" updated ", " food lovers", " culinary ", " district")):
+        return True
+    if any(char.isdigit() for char in normalized) and any(
+        token in normalized for token in ("best", "top", "famous", "updated")
+    ):
+        return True
+    return False
 
 
 def _clean_phone_match(value: str) -> str:

@@ -159,10 +159,13 @@ def re_search_generic_list(title: str) -> bool:
 
 def filter_result(result: SearchResult, query: SearchQuery | None = None) -> bool:
     host = urlparse(result.url).netloc.lower()
+    path = urlparse(result.url).path.lower()
     if not host:
         return False
     blocked = ("google.com/search", "bing.com/search", "duckduckgo.com")
     if any(item in result.url.lower() for item in blocked):
+        return False
+    if "google." in host and path.startswith("/maps/search"):
         return False
     if query and query.location:
         return result_relevance_score(result, query) >= 0.35

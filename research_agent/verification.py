@@ -1,22 +1,23 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import re
 from typing import Any
 
 from research_agent.models import BusinessRecord, LIST_FIELDS, SCALAR_FIELDS, SourceEvidence, VerifiedValue
-from research_agent.normalization import normalize_address, normalize_phone, normalize_text, normalize_url
+from research_agent.normalization import coerce_source_text, normalize_address, normalize_phone, normalize_text, normalize_url
 
 
 def _canonical(field_name: str, value: Any) -> str:
+    if field_name == "phone":
+        return normalize_phone(value)
+    if field_name == "website":
+        return normalize_url(value)
+    if field_name == "address":
+        return normalize_address(value)
     if isinstance(value, list):
         return "|".join(sorted(normalize_text(str(item)) for item in value if item))
     text = str(value or "")
-    if field_name == "phone":
-        return normalize_phone(text)
-    if field_name == "website":
-        return normalize_url(text)
-    if field_name == "address":
-        return normalize_address(text)
     return normalize_text(text)
 
 
@@ -46,24 +47,41 @@ def _choose_value(field_name: str, evidence_items: list[SourceEvidence]) -> tupl
     else:
         level = "low"
 
+    display_value = _display_value(field_name, winner[0].value)
     conflicts = []
     for group in ranked[1:]:
         conflicts.append(
             {
-                "value": group[0].value,
+                "value": _display_value(field_name, group[0].value),
                 "sources": sorted({item.source_url for item in group}),
                 "source_types": sorted({item.source_type for item in group}),
             }
         )
 
     verified = VerifiedValue(
-        value=winner[0].value,
+        value=display_value,
         confidence=confidence,
         verified_level=level,
         sources=winner_sources,
         evidence_count=len(winner),
     )
-    return winner[0].value, verified, conflicts
+    return display_value, verified, conflicts
+
+
+def _display_value(field_name: str, value: Any) -> Any:
+    if field_name == "phone":
+        text = coerce_source_text(value)
+        for part in re.split(r"[,;|/]", text):
+            if normalize_phone(part):
+                return part.strip(" -.,")
+        return text.strip(" -.,")
+    if field_name == "address":
+        text = coerce_source_text(value)
+        text = re.sub(r"[\[\]']", "", text)
+        text = re.sub(r"(?:^|,\s*)-\s*(?=,|$)", "", text)
+        text = re.sub(r"\s*,\s*,+", ", ", text)
+        return " ".join(text.split()).strip(" ,")
+    return value
 
 
 def verify_record(record: BusinessRecord) -> BusinessRecord:
