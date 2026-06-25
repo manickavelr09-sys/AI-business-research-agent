@@ -335,4 +335,35 @@ button:disabled {
   .event-log {
     max-height: 220px;
   }
+  .rag-panel {
+    margin-top: 20px;
+    background: #1e1e1e;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.rag-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+#rag-question {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px;
+}
+
+#ask-ai-btn {
+    width: 140px;
+}
+
+.rag-answer {
+    background: #2a2a2a;
+    padding: 15px;
+    border-radius: 10px;
+    min-height: 80px;
+    white-space: pre-wrap;
+}
+
 }
