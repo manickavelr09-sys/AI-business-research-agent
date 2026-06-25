@@ -323,6 +323,15 @@ document
 //---------------------------
 //Rag setup
 //---------------------------
+const openChatButton = document.querySelector("#open-chat");
+
+// inside the "completed" event handler, next to pdfButton.disabled = false;
+openChatButton.disabled = false;
+
+openChatButton?.addEventListener("click", () => {
+  const queryValue = document.querySelector("#query").value;
+  window.location.href = `/chat?run_id=${encodeURIComponent(currentRunId)}&query=${encodeURIComponent(queryValue)}`;
+});
 
 async function askAI() {
 

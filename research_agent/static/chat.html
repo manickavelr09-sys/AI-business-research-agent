@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Business Research Chat</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20260625-4" />
+    <style>
+      /*
+        Layout-only rules for this page. Card colors, button styles, and the
+        dark "Ask AI" panel come from styles.css (--ink, --muted, --line,
+        --panel, --surface, --accent, .rag-panel) once the media-query fix
+        above is applied. These rules only add the pieces that don't exist
+        yet: the sidebar, the FAQ accordion, and the chat message bubbles.
+      */
+      .chat-layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      .chat-sidebar {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+        position: sticky;
+        top: 20px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+      }
+
+      .chat-sidebar h2 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .history-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 9px;
+        cursor: pointer;
+        font: inherit;
+        color: var(--ink);
+        height: auto;
+      }
+
+      .history-item:hover {
+        background: var(--surface);
+      }
+
+      .history-item .q-text {
+        display: block;
+        font-weight: 700;
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .history-item .q-time {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .chat-sidebar .empty-state {
+        color: var(--muted);
+      }
+
+      .chat-main {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      /* Text-contrast overrides for the dark .rag-panel background */
+      .rag-panel h2 {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .faq-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 4px;
+      }
+
+      details.faq-item {
+        border: 1px solid rgba(252, 5, 5, 0.829);
+        border-radius: 8px;
+      }
+
+      details.faq-item summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #080000;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      details.faq-item summary::after {
+        content: "+";
+        color: rgba(7, 7, 7, 0.5);
+        font-weight: 400;
+      }
+
+      details.faq-item[open] summary::after {
+        content: "\2212";
+      }
+
+      details.faq-item .faq-answer {
+        padding: 0 12px 12px;
+        font-size: 13px;
+        color: #050505;
+        line-height: 1.6;
+      }
+
+      .chat-thread {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 380px;
+        overflow-y: auto;
+        margin-bottom: 12px;
+      }
+
+      .msg {
+        max-width: 75%;
+        padding: 9px 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .msg.user {
+        align-self: flex-end;
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .msg.assistant {
+        align-self: flex-start;
+        background: #2a2a2a;
+        color: #e5e9ec;
+      }
+
+      .msg.assistant.error {
+        background: rgba(180, 83, 9, 0.18);
+        color: #f2b66b;
+      }
+
+      .msg .sources {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #8b95a0;
+        word-break: break-all;
+      }
+
+      .chat-main .empty-state {
+        color: #8b95a0;
+        font-size: 13px;
+      }
+
+      .back-link {
+        align-self: flex-start;
+        font-size: 13px;
+        color: var(--muted);
+        text-decoration: none;
+      }
+
+      .back-link:hover {
+        color: var(--ink);
+      }
+
+      @media (max-width: 900px) {
+        .chat-layout {
+          grid-template-columns: 1fr;
+        }
+        .chat-sidebar {
+          position: static;
+          max-height: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="toolbar">
+        <div>
+          <h1>Business Research Chat</h1>
+          <p>Ask follow-up questions about <strong id="chat-query-label">this search</strong>.</p>
+        </div>
+        <a class="back-link" href="/">&larr; Back to research</a>
+      </section>
+
+      <section class="chat-layout">
+        <aside class="chat-sidebar">
+          <h2>Recent questions</h2>
+          <div class="history-list" id="history-list">
+            <p class="empty-state" id="history-empty">No questions yet for this search.</p>
+          </div>
+        </aside>
+
+        <section class="chat-main">
+          <section class="rag-panel" aria-label="Frequently asked questions">
+            <div class="quality-heading">
+              <h2>Common questions</h2>
+            </div>
+            <div class="faq-list" id="faq-list"></div>
+          </section>
+
+          <section class="rag-panel" aria-label="Ask AI">
+            <div class="quality-heading">
+              <h2>Ask AI (RAG)</h2>
+            </div>
+            <div class="chat-thread" id="chat-thread">
+              <p class="empty-state" id="chat-empty">Ask anything about the businesses found in this search.</p>
+            </div>
+            <div class="rag-container">
+              <textarea id="rag-question" placeholder="Ask a question about this research run..." rows="3"></textarea>
+              <button id="ask-ai-btn" type="button">Ask AI</button>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      // Confirmed against main.js: endpoint, payload shape ({run_id, question})
+      // and response shape ({answer}) match the real /rag/ask route.
+      var ASK_ENDPOINT = "/rag/ask";
+
+      // run_id and query arrive via the URL: /chat?run_id=...&query=...
+      // Set by the new "Chat" button in index.html, which reads currentRunId
+      // from main.js after a research run completes.
+      var params = new URLSearchParams(window.location.search);
+      var CURRENT_RUN_ID = params.get("run_id") || "unknown-run";
+      var CURRENT_QUERY = params.get("query") || "this search";
+
+      var STORAGE_KEY = "rag_chat_session";
+
+      var FAQ_ITEMS = [
+        {
+          q: "What does \u201cverified\u201d mean in the report?",
+          a: "A field is marked verified when its value is confirmed by more than one independent source, or comes from a high-trust source such as an official business website."
+        },
+        {
+          q: "Why are some sources shown as disabled on the homepage?",
+          a: "Providers like Serper, Geoapify, and Google Places only run when their API key is configured. Without a key, the agent still works using public web search and scraping, just with narrower coverage."
+        },
+        {
+          q: "Does this chat use the whole web, or only this search?",
+          a: "Only this search. Every answer here is generated from the evidence collected for the current business research run, not outside facts or other runs."
+        },
+        {
+          q: "What happens if no LLM key is configured?",
+          a: "The agent falls back to a deterministic, evidence-only summary built directly from retrieved source snippets, without calling a language model."
+        },
+        {
+          q: "Will my chat history carry over if I start a new business search?",
+          a: "No. The chat and sidebar history are tied to the current run. As soon as a new search starts, this page resets and starts a fresh conversation."
+        }
+      ];
+
+      document.getElementById("chat-query-label").textContent = CURRENT_QUERY;
+
+      function loadSession() {
+        var raw = null;
+        try {
+          raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        } catch (e) {
+          raw = null;
+        }
+        if (!raw || raw.runId !== CURRENT_RUN_ID) {
+          raw = { runId: CURRENT_RUN_ID, query: CURRENT_QUERY, messages: [] };
+          saveSession(raw);
+        }
+        return raw;
+      }
+
+      function saveSession(s) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+      }
+
+      var session = loadSession();
+
+      // ---- FAQ ----
+      var faqList = document.getElementById("faq-list");
+      FAQ_ITEMS.forEach(function (item) {
+        var details = document.createElement("details");
+        details.className = "faq-item";
+        var summary = document.createElement("summary");
+        summary.textContent = item.q;
+        var answer = document.createElement("div");
+        answer.className = "faq-answer";
+        answer.textContent = item.a;
+        details.appendChild(summary);
+        details.appendChild(answer);
+        faqList.appendChild(details);
+      });
+
+      // ---- Render thread + sidebar ----
+      var chatThread = document.getElementById("chat-thread");
+      var chatEmpty = document.getElementById("chat-empty");
+      var historyList = document.getElementById("history-list");
+      var historyEmpty = document.getElementById("history-empty");
+
+      function renderAll() {
+        chatThread.innerHTML = "";
+        historyList.innerHTML = "";
+
+        if (session.messages.length === 0) {
+          chatThread.appendChild(chatEmpty);
+          historyList.appendChild(historyEmpty);
+          return;
+        }
+
+        session.messages.forEach(function (msg) {
+          chatThread.appendChild(renderMessage(msg));
+          if (msg.role === "user") {
+            historyList.appendChild(renderHistoryItem(msg));
+          }
+        });
+
+        chatThread.scrollTop = chatThread.scrollHeight;
+      }
+
+      function renderMessage(msg) {
+        var el = document.createElement("div");
+        el.className = "msg " + msg.role + (msg.isError ? " error" : "");
+        el.id = "msg-" + msg.id;
+        el.textContent = msg.text;
+        if (msg.sources && msg.sources.length) {
+          var src = document.createElement("div");
+          src.className = "sources";
+          src.textContent = "Sources: " + msg.sources.join(", ");
+          el.appendChild(src);
+        }
+        return el;
+      }
+
+      function renderHistoryItem(msg) {
+        var btn = document.createElement("button");
+        btn.className = "history-item";
+        var qText = document.createElement("span");
+        qText.className = "q-text";
+        qText.textContent = msg.text;
+        var qTime = document.createElement("span");
+        qTime.className = "q-time";
+        qTime.textContent = new Date(msg.ts).toLocaleTimeString();
+        btn.appendChild(qText);
+        btn.appendChild(qTime);
+        btn.addEventListener("click", function () {
+          var target = document.getElementById("msg-" + msg.id);
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        return btn;
+      }
+
+      renderAll();
+
+      // ---- Ask AI ----
+      var textarea = document.getElementById("rag-question");
+      var askBtn = document.getElementById("ask-ai-btn");
+
+      function cryptoId() {
+        return Math.random().toString(36).slice(2) + Date.now().toString(36);
+      }
+
+      askBtn.addEventListener("click", function () {
+        var question = textarea.value.trim();
+        if (!question) return;
+
+        var userMsg = { id: cryptoId(), role: "user", text: question, ts: Date.now() };
+        session.messages.push(userMsg);
+        saveSession(session);
+        renderAll();
+        textarea.value = "";
+        askBtn.disabled = true;
+
+        fetch(ASK_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ run_id: String(CURRENT_RUN_ID), question: question })
+        })
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function (data) {
+            var assistantMsg;
+            if (data.error) {
+              assistantMsg = { id: cryptoId(), role: "assistant", isError: true, text: data.error, ts: Date.now() };
+            } else {
+              assistantMsg = {
+                id: cryptoId(),
+                role: "assistant",
+                text: data.answer || "No answer returned.",
+                sources: data.sources || [],
+                ts: Date.now()
+              };
+            }
+            session.messages.push(assistantMsg);
+            saveSession(session);
+            renderAll();
+          })
+          .catch(function () {
+            session.messages.push({
+              id: cryptoId(),
+              role: "assistant",
+              isError: true,
+              text: "Could not reach the research agent. Check that the local server is running.",
+              ts: Date.now()
+            });
+            saveSession(session);
+            renderAll();
+          })
+          .finally(function () {
+            askBtn.disabled = false;
+          });
+      });
+    </script>
+  </body>
+</html>

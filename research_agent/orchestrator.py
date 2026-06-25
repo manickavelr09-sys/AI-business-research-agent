@@ -294,62 +294,80 @@ class ResearchAgent:
         report_payload = report.to_dict()
         mongo_result = await self.mongo.save_report(report_payload)
 
-# -------------------------
-# RAG INDEXING
-# -------------------------
+# ─────────────────────────────────────────
+# RAG INDEXING WITH LRU CACHE
+# ─────────────────────────────────────────
+        import hashlib
+        from research_agent.rag.lru_cache import (
+            get_run_id_for_query,
+            register_session
+        )
+
+        # Generate deterministic run_id from query
         def generate_run_id(query: str) -> str:
-            hash_part = hashlib.md5(query.lower().strip().encode()).hexdigest()[:8]
+            hash_part = hashlib.md5(
+                query.lower().strip().encode()
+            ).hexdigest()[:8]
             timestamp = int(time.time())
             return f"run_{hash_part}_{timestamp}"
 
-        run_id = mongo_result.get("report_id") if mongo_result else generate_run_id(raw_query)
+        # Check LRU cache first — avoid re-indexing same query!
+        cached_run_id = get_run_id_for_query(raw_query)
 
-        evidence_text_items = []
+        if cached_run_id:
+            run_id = cached_run_id
+            print(f"RAG LRU HIT: reusing {run_id} for '{raw_query}'")
+        else:
+            # New search — generate fresh run_id
+            run_id = mongo_result.get("report_id") if mongo_result else generate_run_id(raw_query)
+            print(f"RAG LRU MISS: indexing new session {run_id}")
 
-        for business in verified:
+            # Build rich evidence from verified businesses
+            evidence_text_items = []
+            for business in verified:
+                # Build comprehensive text for better RAG retrieval
+                text = f"""
+Business Name: {business.business_name or 'N/A'}
+Phone: {business.phone or 'N/A'}
+Address: {business.address or 'N/A'}
+Website: {business.website or 'N/A'}
+Rating: {business.rating or 'N/A'}
+Trust Score: {business.reliability_score or 'N/A'}
+Services: {', '.join(business.services or [])}
+Working Hours: {business.working_hours or 'N/A'}
+Email: {business.email or 'N/A'}
+""".strip()
 
-            evidence_text_items.append({
-            "text": f"""
-Business Name: {business.business_name}
+                evidence_text_items.append({
+                    "text": text,
+                    "source_url": business.website or ""
+                })
 
-Phone: {business.phone}
+            # Index into RAG with LRU session management
+            try:
+                total_chunks = await rag_pipeline.index_evidence(
+                    run_id,
+                    evidence_text_items,
+                    query=raw_query  # LRU registers this automatically!
+                )
+                print(f"RAG INDEXED: {total_chunks} chunks for '{raw_query}'")
+            except Exception as e:
+                print(f"RAG Index Error: {e}")
+                # Don't crash — RAG failure shouldn't stop research
 
-Address: {business.address}
-
-Website: {business.website}
-
-Rating: {business.rating}
-
-Trust Score: {business.reliability_score}
-""",
-        "source_url": business.website or ""
-    })
-
-        try:
-          #test 
-            await rag_pipeline.index_evidence(
-    run_id,
-    evidence_text_items,
-    query=raw_query  # Pass query for session management!
-)
-            print("CALLING RAG INDEXER")
-            print("RUN ID:", run_id)
-            print("ITEMS:", len(evidence_text_items))
-            '''  asyncio.create_task(
-        rag_pipeline.index_evidence(
-            run_id,
-            evidence_text_items
-        ) ) '''
-            
-        except Exception as e:
-            print("RAG Index Error:", e)
+# ─────────────────────────────────────────
 
 # -------------------------
 
         completed_event = {
     "event": "completed",
     "run_id": run_id,
-    "report": report_payload
+    "report": report_payload,
+    "rag": {
+        "session_id": run_id,
+        "ready": True,
+        "message": "RAG ready — ask questions about these businesses!"
+    }
 }
         if mongo_result:
             completed_event["mongo"] = mongo_result
