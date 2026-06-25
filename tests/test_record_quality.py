@@ -35,7 +35,7 @@ def test_singular_generic_business_title_is_rejected_even_with_phone() -> None:
 def test_generic_title_with_extra_directory_text_is_rejected() -> None:
     query = SearchQuery(raw="dentists in thanjavur", category="dentists", location="thanjavur")
     record = BusinessRecord(
-        business_name="Dentists in Thanjavur, India • Check Prices & Reviews",
+        business_name="Dentists in Thanjavur, India - Check Prices & Reviews",
         website="https://www.whatclinic.com/dentists/india/thanjavur",
     )
     assert not should_stream_record(record, query, "web")
@@ -72,7 +72,7 @@ def test_generic_directory_brand_is_not_business_record() -> None:
 def test_hashtag_caption_is_not_business_record() -> None:
     query = SearchQuery(raw="electricians in karaikudi", category="electricians", location="karaikudi")
     record = BusinessRecord(
-        business_name="#sivagangai_seemai⚔️ #electrician #karaikudi #electricianlife ...",
+        business_name="#sivagangai_seemai #electrician #karaikudi #electricianlife ...",
         website="https://www.instagram.com/reel/example",
     )
     assert not should_stream_record(record, query, "web")
@@ -90,7 +90,7 @@ def test_generic_electrical_repair_title_is_not_business_record() -> None:
 def test_electrical_dealers_directory_title_is_not_business_record() -> None:
     query = SearchQuery(raw="electricians in karaikudi", category="electricians", location="karaikudi")
     record = BusinessRecord(
-        business_name="Electrical Dealers in Karaikudi – Wires, Switches, LED Lights",
+        business_name="Electrical Dealers in Karaikudi - Wires, Switches, LED Lights",
         website="https://example.com/electrical-dealers-karaikudi",
     )
     assert not should_stream_record(record, query, "web")
