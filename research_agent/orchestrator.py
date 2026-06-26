@@ -1,5 +1,4 @@
 from __future__ import annotations
-from research_agent.rag import pipeline as rag_pipeline
 import asyncio
 import time
 from datetime import datetime, timezone
@@ -310,12 +309,6 @@ class ResearchAgent:
 # ─────────────────────────────────────────
 # RAG INDEXING WITH LRU CACHE
 # ─────────────────────────────────────────
-        import hashlib
-        from research_agent.rag.lru_cache import (
-            get_run_id_for_query,
-            register_session
-        )
-
         # Generate deterministic run_id from query
         def generate_run_id(query: str) -> str:
             hash_part = hashlib.md5(
@@ -324,22 +317,26 @@ class ResearchAgent:
             timestamp = int(time.time())
             return f"run_{hash_part}_{timestamp}"
 
-        # Check LRU cache first — avoid re-indexing same query!
-        cached_run_id = get_run_id_for_query(raw_query)
+        run_id = mongo_result.get("report_id") if mongo_result else generate_run_id(raw_query)
+        rag_ready = False
 
-        if cached_run_id:
-            run_id = cached_run_id
-            print(f"RAG LRU HIT: reusing {run_id} for '{raw_query}'")
-        else:
-            # New search — generate fresh run_id
-            run_id = mongo_result.get("report_id") if mongo_result else generate_run_id(raw_query)
-            print(f"RAG LRU MISS: indexing new session {run_id}")
+        try:
+            from research_agent.rag import pipeline as rag_pipeline
+            from research_agent.rag.lru_cache import get_run_id_for_query
 
-            # Build rich evidence from verified businesses
-            evidence_text_items = []
-            for business in verified:
-                # Build comprehensive text for better RAG retrieval
-                text = f"""
+            # Check LRU cache first; avoid re-indexing same query.
+            cached_run_id = get_run_id_for_query(raw_query)
+
+            if cached_run_id:
+                run_id = cached_run_id
+                rag_ready = True
+                print(f"RAG LRU HIT: reusing {run_id} for '{raw_query}'")
+            else:
+                print(f"RAG LRU MISS: indexing new session {run_id}")
+
+                evidence_text_items = []
+                for business in verified:
+                    text = f"""
 Business Name: {business.business_name or 'N/A'}
 Phone: {business.phone or 'N/A'}
 Address: {business.address or 'N/A'}
@@ -351,22 +348,20 @@ Working Hours: {business.working_hours or 'N/A'}
 Email: {business.email or 'N/A'}
 """.strip()
 
-                evidence_text_items.append({
-                    "text": text,
-                    "source_url": business.website or ""
-                })
+                    evidence_text_items.append({
+                        "text": text,
+                        "source_url": business.website or ""
+                    })
 
-            # Index into RAG with LRU session management
-            try:
                 total_chunks = await rag_pipeline.index_evidence(
                     run_id,
                     evidence_text_items,
-                    query=raw_query  # LRU registers this automatically!
+                    query=raw_query,
                 )
+                rag_ready = total_chunks > 0
                 print(f"RAG INDEXED: {total_chunks} chunks for '{raw_query}'")
-            except Exception as e:
-                print(f"RAG Index Error: {e}")
-                # Don't crash — RAG failure shouldn't stop research
+        except Exception as e:
+            print(f"RAG unavailable: {e}")
 
 # ─────────────────────────────────────────
 
@@ -378,8 +373,12 @@ Email: {business.email or 'N/A'}
     "report": report_payload,
     "rag": {
         "session_id": run_id,
-        "ready": True,
-        "message": "RAG ready — ask questions about these businesses!"
+        "ready": rag_ready,
+        "message": (
+            "RAG ready - ask questions about these businesses!"
+            if rag_ready
+            else "RAG indexing was skipped; research results are still complete."
+        )
     }
 }
         if mongo_result:
