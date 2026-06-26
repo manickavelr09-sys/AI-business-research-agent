@@ -12,7 +12,14 @@ from fastapi.staticfiles import StaticFiles
 from research_agent.config import settings
 from research_agent.orchestrator import ResearchAgent
 from research_agent.pdf_report import build_research_pdf
-from research_agent.rag.router import router as rag_router
+
+try:
+    from research_agent.rag.router import router as rag_router
+except Exception as exc:  # pragma: no cover - defensive serverless startup guard
+    rag_router = None
+    rag_router_error = f"{type(exc).__name__}: {exc}"
+else:
+    rag_router_error = ""
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -25,7 +32,8 @@ app = FastAPI(
     description="Public web business research, verification, dedupe, and structured reporting.",
 )
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-app.include_router(rag_router)
+if rag_router is not None:
+    app.include_router(rag_router)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -61,7 +69,7 @@ async def readiness() -> dict[str, object]:
             "bing_html": True,
         },
         "intelligence": {
-            "rag_summary": True,
+            "rag_summary": rag_router is not None,
             "llm_summary": bool(settings.llm_summary_enabled and settings.llm_api_key),
         },
         "storage": {
@@ -84,6 +92,8 @@ async def readiness() -> dict[str, object]:
         warnings.append("Tavily is disabled. RAG evidence discovery will rely more on HTML search fallback.")
     if settings.llm_summary_enabled and not settings.llm_api_key:
         warnings.append("LLM summaries are disabled because no LLM_API_KEY is configured; evidence-only RAG summaries still work.")
+    if rag_router_error:
+        warnings.append(f"RAG chat router is disabled: {rag_router_error}")
     return {
         "status": "ready" if search_ready and map_ready else "degraded",
         "providers": providers,
