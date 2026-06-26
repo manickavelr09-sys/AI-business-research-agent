@@ -307,10 +307,4 @@ Current suite coverage includes:
 - Social platforms often restrict automated access; the agent treats them mainly as discoverable public evidence when indexed.
 - Licensing databases vary by industry and region and may require source-specific adapters.
 
-## Demo Guide
 
-For a judge-facing walkthrough, see:
-
-```text
-docs/JUDGING_GUIDE.md
-```
