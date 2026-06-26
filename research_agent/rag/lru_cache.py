@@ -27,7 +27,7 @@ RAG_INDEX_DIR = _writable_index_dir()
 DB_PATH = os.path.join(RAG_INDEX_DIR, "index.db")
 MAX_SESSIONS = 3
 
-# ── DATABASE SETUP ────────────────────────
+# DATABASE SETUP
 def get_db():
     os.makedirs(RAG_INDEX_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
@@ -53,11 +53,11 @@ def init_db():
 
 init_db()
 
-# ── NPZ PATH ─────────────────────────────
+# NPZ PATH
 def get_npz_path(run_id: str) -> str:
     return os.path.join(RAG_INDEX_DIR, f"{run_id}.npz")
 
-# ── LRU CORE LOGIC ───────────────────────
+# LRU CORE LOGIC
 def _evict_lru_if_needed(conn):
     """Evict least recently used session if cache is full"""
     rows = conn.execute("""
@@ -80,9 +80,9 @@ def _evict_lru_if_needed(conn):
             "DELETE FROM rag_sessions WHERE run_id = ?",
             (oldest["run_id"],)
         )
-        print(f"LRU EVICTED: '{oldest['query']}' → {oldest['run_id']}")
+        print(f"LRU EVICTED: '{oldest['query']}' -> {oldest['run_id']}")
 
-# ── PUBLIC API ────────────────────────────
+# PUBLIC API
 def register_session(run_id: str, query: str, chunk_count: int = 0):
     """Register new search session in LRU cache"""
     conn = get_db()
@@ -102,7 +102,7 @@ def register_session(run_id: str, query: str, chunk_count: int = 0):
                 chunk_count=?, npz_path=?
             WHERE query=?
         """, (run_id, now, chunk_count, npz_path, query.lower().strip()))
-        print(f"LRU UPDATED: '{query}' → {run_id}")
+        print(f"LRU UPDATED: '{query}' -> {run_id}")
     else:
         _evict_lru_if_needed(conn)
         conn.execute("""
@@ -110,7 +110,7 @@ def register_session(run_id: str, query: str, chunk_count: int = 0):
             (run_id, query, created_at, last_used, access_count, chunk_count, npz_path)
             VALUES (?, ?, ?, ?, 1, ?, ?)
         """, (run_id, query.lower().strip(), now, now, chunk_count, npz_path))
-        print(f"LRU REGISTERED: '{query}' → {run_id}")
+        print(f"LRU REGISTERED: '{query}' -> {run_id}")
 
     conn.commit()
     conn.close()
@@ -139,7 +139,7 @@ def get_run_id_for_query(query: str) -> str | None:
     conn.close()
     if row:
         touch_session(row["run_id"])
-        print(f"LRU CACHE HIT: '{query}' → {row['run_id']}")
+        print(f"LRU CACHE HIT: '{query}' -> {row['run_id']}")
         return row["run_id"]
     print(f"LRU CACHE MISS: '{query}'")
     return None
@@ -181,7 +181,7 @@ def clear_all():
 def _print_cache_state():
     """Debug — print current cache state"""
     sessions = get_all_sessions()
-    print(f"\n── LRU CACHE STATE ({len(sessions)}/{MAX_SESSIONS}) ──")
+    print(f"\nLRU CACHE STATE ({len(sessions)}/{MAX_SESSIONS})")
     for i, s in enumerate(sessions):
         print(f"  {i+1}. '{s['query']}' | used:{s['access_count']}x | last:{s['last_used'][:19]}")
-    print("─────────────────────────────────\n")
+    print("\n")

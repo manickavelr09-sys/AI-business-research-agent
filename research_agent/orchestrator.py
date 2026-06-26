@@ -306,9 +306,7 @@ class ResearchAgent:
         report_payload = report.to_dict()
         mongo_result = await self.mongo.save_report(report_payload)
 
-# ─────────────────────────────────────────
 # RAG INDEXING WITH LRU CACHE
-# ─────────────────────────────────────────
         # Generate deterministic run_id from query
         def generate_run_id(query: str) -> str:
             hash_part = hashlib.md5(
@@ -362,10 +360,6 @@ Email: {business.email or 'N/A'}
                 print(f"RAG INDEXED: {total_chunks} chunks for '{raw_query}'")
         except Exception as e:
             print(f"RAG unavailable: {e}")
-
-# ─────────────────────────────────────────
-
-# -------------------------
 
         completed_event = {
     "event": "completed",
