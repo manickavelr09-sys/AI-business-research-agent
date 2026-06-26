@@ -2,8 +2,9 @@ import os
 import sqlite3
 import numpy as np
 from datetime import datetime
+from .config import rag_config
 
-RAG_INDEX_DIR = "rag/.rag_index"
+RAG_INDEX_DIR = rag_config.index_dir
 DB_PATH = os.path.join(RAG_INDEX_DIR, "index.db")
 MAX_SESSIONS = 3
 

@@ -2,41 +2,44 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import Body, FastAPI, Query
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi import Body, FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
-from pathlib import Path
 from research_agent.config import settings
 from research_agent.orchestrator import ResearchAgent
 from research_agent.pdf_report import build_research_pdf
 from research_agent.rag.router import router as rag_router
 
 
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+INDEX_HTML = STATIC_DIR / "index.html"
+CHAT_HTML = STATIC_DIR / "chat.html"
+
 app = FastAPI(
     title="AI Business Research Agent",
     version="0.1.0",
     description="Public web business research, verification, dedupe, and structured reporting.",
 )
-
-app.mount("/static", StaticFiles(directory="research_agent/static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(rag_router)
 
-STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+@app.get("/", response_class=HTMLResponse)
+async def index() -> str:
+    with INDEX_HTML.open("r", encoding="utf-8") as handle:
+        return handle.read()
+
 
 @app.get("/chat")
-async def chat_page():
-    chat_path = STATIC_DIR / "chat.html"
-    if not chat_path.exists():
-        raise HTTPException(status_code=404, detail=f"chat.html not found at {chat_path}")
-    return FileResponse(chat_path)
+async def chat_page() -> FileResponse:
+    if not CHAT_HTML.exists():
+        raise HTTPException(status_code=404, detail=f"chat.html not found at {CHAT_HTML}")
+    return FileResponse(CHAT_HTML)
 
-@app.get("/chat")
-async def chat_page():
-    return FileResponse("static/chat.html")
 
 @app.get("/health")
 async def health() -> dict[str, str]:
@@ -71,7 +74,10 @@ async def readiness() -> dict[str, object]:
     search_ready = any(providers["search"].values())
     warnings = []
     if not map_ready:
-        warnings.append("Maps are disabled. Add SERPER_API_KEY, GEOAPIFY_API_KEY, or GOOGLE_MAPS_API_KEY for high-volume phone/address coverage.")
+        warnings.append(
+            "Maps are disabled. Add SERPER_API_KEY, GEOAPIFY_API_KEY, or "
+            "GOOGLE_MAPS_API_KEY for high-volume phone/address coverage."
+        )
     if not bool(settings.serper_api_key):
         warnings.append("Serper is disabled. Google-style places and search coverage will be limited.")
     if not bool(settings.tavily_api_key):
