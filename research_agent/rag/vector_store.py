@@ -1,8 +1,7 @@
 import os
 import numpy as np
-from .config import rag_config
+from .lru_cache import RAG_INDEX_DIR
 
-RAG_INDEX_DIR = rag_config.index_dir
 os.makedirs(RAG_INDEX_DIR, exist_ok=True)
 
 class VectorStore:

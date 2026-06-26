@@ -1,17 +1,35 @@
 import os
 import sqlite3
+import tempfile
 import numpy as np
 from datetime import datetime
+from pathlib import Path
 from .config import rag_config
 
-RAG_INDEX_DIR = rag_config.index_dir
+def _writable_index_dir() -> str:
+    candidates = [rag_config.index_dir, os.path.join(tempfile.gettempdir(), "research_agent_rag")]
+    for candidate in dict.fromkeys(candidates):
+        path = Path(candidate)
+        if os.getenv("VERCEL") and not path.is_absolute():
+            path = Path(tempfile.gettempdir()) / candidate.strip("./\\")
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            probe = path / ".write_test"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            return str(path)
+        except OSError:
+            continue
+    return tempfile.mkdtemp(prefix="research_agent_rag_")
+
+
+RAG_INDEX_DIR = _writable_index_dir()
 DB_PATH = os.path.join(RAG_INDEX_DIR, "index.db")
 MAX_SESSIONS = 3
 
-os.makedirs(RAG_INDEX_DIR, exist_ok=True)
-
 # ── DATABASE SETUP ────────────────────────
 def get_db():
+    os.makedirs(RAG_INDEX_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
